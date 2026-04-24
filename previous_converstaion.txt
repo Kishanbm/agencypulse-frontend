@@ -1,0 +1,2303 @@
+Phase 8.1 / 8.8 / 8.3 / 8.7 — Full Implementation Plan
+8.1 — Alerts & Monitoring
+What AgencyAnalytics does
+Threshold alerts that fire when a metric crosses a value, budget pacing alerts when spend approaches a cap, and anomaly detection. Alerts notify via email with context (current value, threshold, trend direction). Alert history is preserved.
+
+DB Schema — 2 new tables
+alerts
+
+
+id, tenant_id, campaign_id, platform, metric_key,
+condition      ENUM(ABOVE, BELOW, PERCENT_CHANGE_ABOVE, PERCENT_CHANGE_BELOW),
+threshold      DECIMAL(20,6),          -- the target number
+period_type    ENUM(DAILY, WEEKLY),    -- evaluate over what window
+recipient_emails TEXT[],
+is_active      BOOLEAN DEFAULT true,
+cooldown_hours  INTEGER DEFAULT 24,    -- don't re-fire within this window
+last_triggered_at TIMESTAMPTZ,
+created_by_id, created_at, updated_at, deleted_at
+alert_events (immutable audit log — no soft delete)
+
+
+id, tenant_id, alert_id, campaign_id,
+triggered_value  DECIMAL(20,6),   -- value that caused the trigger
+threshold_value  DECIMAL(20,6),   -- snapshot of threshold at fire time
+condition        TEXT,
+notified_at      TIMESTAMPTZ,
+emails_sent      TEXT[],
+created_at
+BullMQ: ALERT_CHECK_QUEUE
+New queue alongside SYNC_QUEUE and REPORT_QUEUE.
+
+Trigger point: after every successful upsertMetrics() in IntegrationSyncProcessor, enqueue an AlertCheckJob with { tenantId, campaignId, platform }. This is fire-and-forget — sync should not fail if alert check fails.
+
+AlertCheckProcessor:
+
+Fetch all active, non-deleted alerts for (tenantId, campaignId, platform)
+For each alert, skip if lastTriggeredAt is within cooldownHours
+Fetch getMetricSummary for today (DAILY) or last 7 days (WEEKLY)
+For PERCENT_CHANGE_*: also fetch prior same-length period using computePriorPeriod
+Evaluate condition — if triggered:
+Insert alert_event record
+Update alerts.last_triggered_at = NOW()
+Send email via EmailService.sendAlertTriggered()
+Concurrency: 5 (cheap DB reads, multiple tenants)
+jobId = alert:${alertId}:${todayDateStr} — BullMQ dedup so if sync runs twice today, alert only checks once
+Email template: alert-triggered.hbs
+Campaign name, platform, metric label, current value, threshold, condition text, link to campaign
+API Endpoints
+
+POST   /clients/:clientId/campaigns/:campaignId/alerts       -- ADMIN only
+GET    /clients/:clientId/campaigns/:campaignId/alerts       -- all roles (scoped)
+PATCH  /clients/:clientId/campaigns/:campaignId/alerts/:id   -- ADMIN only
+DELETE /clients/:clientId/campaigns/:campaignId/alerts/:id   -- ADMIN only (soft delete)
+GET    /clients/:clientId/campaigns/:campaignId/alerts/:id/events  -- history
+Condition evaluation logic
+Condition	Trigger when
+ABOVE	currentValue > threshold
+BELOW	currentValue < threshold
+PERCENT_CHANGE_ABOVE	(current - prior) / prior * 100 > threshold
+PERCENT_CHANGE_BELOW	(current - prior) / prior * 100 < threshold (negative threshold = drop alert)
+Module structure
+
+src/modules/alerts/
+  dto/create-alert.dto.ts
+  alerts.controller.ts
+  alerts.service.ts
+  alerts.module.ts
+  processors/alert-check.processor.ts
+  templates/alert-triggered.hbs   (in email module)
+8.8 — ROI Forecasting
+What AgencyAnalytics does
+A projected trend line on time-series charts based on historical data. Shows where the metric is heading. Optionally shows a confidence band. Used for client presentations — "at current pace, you'll hit X by end of month."
+
+No new DB tables — pure computation on metric_values
+Algorithm: Ordinary Least Squares Linear Regression
+Pull last N days of daily values (default: lookback window = same as the request from→to range, max 90 days)
+Assign x = 0, 1, 2, ... n-1 for each day
+Compute slope and intercept
+Project forward forecastDays (default 30, max 90)
+Compute R² (goodness of fit — send to frontend so it knows if trend is reliable)
+Confidence band: ±1.96 × std deviation of residuals (95% confidence interval)
+Minimum data: at least 7 data points — return { insufficient_data: true } if less
+Response shape
+
+{
+  "metricKey": "sessions",
+  "platform": "GA4",
+  "trend": {
+    "slope": 12.5,
+    "intercept": 830,
+    "r2": 0.87,
+    "direction": "UP" | "DOWN" | "FLAT"
+  },
+  "historical": [
+    { "date": "2026-04-01", "actual": 850 },
+    ...
+  ],
+  "forecast": [
+    { "date": "2026-05-01", "projected": 1230, "lower": 1100, "upper": 1360 },
+    ...
+  ],
+  "forecastSummary": {
+    "projectedTotal": 38400,
+    "projectedEndValue": 1450,
+    "confidenceLevel": 0.95
+  }
+}
+direction: FLAT if |slope / mean| < 0.02 (2%), otherwise UP/DOWN.
+
+API Endpoint
+
+GET /clients/:clientId/campaigns/:campaignId/forecast
+    ?platform=GA4
+    &metricKey=sessions
+    &from=2026-04-01         (historical window start)
+    &to=2026-04-30           (historical window end)
+    &forecastDays=30         (default 30, max 90)
+Caching
+1-hour TTL (key: forecast:tenantId:campaignId:platform:metricKey:from:to:forecastDays)
+Historical data is immutable once synced; forecasts don't need to refresh often
+Rate limiting
+@Throttle({ default: { limit: 20, ttl: 60_000 } }) — computation is cheap (in-memory math after one DB read), but still throttle
+Module structure
+
+src/modules/forecast/
+  dto/forecast-query.dto.ts
+  forecast.controller.ts
+  forecast.service.ts          -- calls MetricsService.getMetrics(), runs OLS
+  forecast.module.ts           -- imports MetricsModule, CacheModule
+  utils/linear-regression.ts   -- pure math, unit-testable
+8.3 — KPI Engine / Custom Calculated Metrics
+What AgencyAnalytics does
+Derived metrics computed from base metrics: ROAS, CPA, CPM, Conversion Rate, custom formulas. These appear as first-class metrics in dashboards, reports, and scorecards. Custom metrics are tenant-defined (not platform-level).
+
+Two-layer design
+Layer 1 — Built-in derived metrics (hardcoded, no DB)
+Standard industry formulas that always exist for platforms that have the base metrics:
+
+KPI	Formula	Platforms
+ctr	clicks / impressions * 100	Google Ads, Meta Ads (already stored raw — recalculate cleanly)
+cpc	spend_or_cost / clicks	Google Ads, Meta Ads
+cpm	spend_or_cost / impressions * 1000	Google Ads, Meta Ads
+roas	revenue / spend	Meta Ads (if revenue tracked)
+cpa	spend_or_cost / conversions	Google Ads, Meta Ads
+conversion_rate	conversions / clicks * 100	Google Ads, Meta Ads
+pages_per_session	screenPageViews / sessions	GA4
+These are computed in KpiEngineService.computeDerived(summaryResult, platform) — receives a MetricSummaryResult, returns it augmented with derived values. Zero-safe (if denominator = 0, result = null).
+
+Layer 2 — Custom metric definitions (DB-persisted, tenant-scoped)
+
+New table: custom_metric_definitions
+
+
+id, tenant_id, name VARCHAR(100), 
+formula TEXT,               -- e.g. "revenue / spend"
+variable_keys TEXT[],       -- ["revenue", "spend"] — extracted at save time
+platform integration_platform,
+is_active BOOLEAN DEFAULT true,
+created_by_id, created_at, updated_at, deleted_at
+Formula language: only +, -, *, /, (, ) and $variableName references. Validated server-side with a whitelist regex parser (no eval, no SQL, no arbitrary code).
+
+Formula evaluator (safe, no eval)
+Parse with simple tokenizer: numbers, operators, parentheses, variable refs
+Build an AST, evaluate with substituted values
+Library: expr-eval (npm, 1.2kB, no eval, supports standard math)
+KPI Engine endpoint
+
+GET /clients/:clientId/campaigns/:campaignId/kpi
+    ?platform=GA4
+    &from=2026-04-01
+    &to=2026-04-30
+Returns: { base: { sessions: 12000, ... }, derived: { pages_per_session: 3.2, ... }, custom: { my_roi: 4.1, ... } }
+
+Custom metric CRUD
+
+POST   /agencies/me/kpi-definitions        -- ADMIN only
+GET    /agencies/me/kpi-definitions        -- all agency users
+PATCH  /agencies/me/kpi-definitions/:id   -- ADMIN only
+DELETE /agencies/me/kpi-definitions/:id   -- ADMIN only (soft delete)
+Module structure
+
+src/modules/kpi/
+  dto/create-kpi-definition.dto.ts
+  dto/kpi-query.dto.ts
+  kpi.controller.ts        -- GET /kpi, CRUD for /kpi-definitions
+  kpi.service.ts           -- computeDerived() + evaluateCustom()
+  kpi.module.ts            -- imports MetricsModule, CacheModule
+  utils/formula-evaluator.ts   -- safe expression parser using expr-eval
+  constants/built-in-kpis.ts   -- hardcoded formulas
+8.7 — Data Export
+What AgencyAnalytics does
+CSV and Excel export of campaign metric data. Users download it for their own analysis, client presentations, or feeding into other tools. Format includes a header row, one row per day, metrics as columns.
+
+Formats supported
+CSV: streamed, Content-Type: text/csv, Content-Disposition: attachment
+Excel (.xlsx): ExcelJS library (lightweight, no native dependencies, streaming support)
+Google Sheets push: Phase 8.7b, later (OAuth to Google Sheets API — separate from GA4 OAuth)
+API Endpoints
+
+GET /clients/:clientId/campaigns/:campaignId/export
+    ?platform=GA4
+    &from=2026-04-01
+    &to=2026-04-30
+    &format=csv|xlsx          (default: csv)
+    &metricKeys=sessions,totalUsers   (optional — omit for all)
+    &granularity=day|week|month       (default: day)
+
+GET /clients/:clientId/campaigns/:campaignId/export/summary
+    ?platform=GA4&from=...&to=...&format=csv|xlsx
+    (single-row KPI totals, not time-series)
+Response
+CSV: Content-Type: text/csv, Content-Disposition: attachment; filename="Campaign-Name_GA4_2026-04-01_2026-04-30.csv"
+XLSX: Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+CSV format (time-series)
+
+Date,Sessions,Total Users,Page Views,...
+2026-04-01,1200,980,3400,...
+2026-04-02,1350,1100,3900,...
+Excel format
+Sheet 1: "Data" — same as CSV
+Sheet 2: "Summary" — KPI totals, min, max, avg
+Styled header row (bold, colored background matching agency primaryColor if available)
+Auto-column width
+Guards
+Date range cap: max 365 days for day granularity, max 5 years for month granularity
+Rate limiting: @Throttle({ default: { limit: 10, ttl: 60_000 } }) — expensive memory operation
+Role scoping: same rules as metrics endpoint (CLIENT_USER restricted to assigned campaigns)
+No file storage: generate entirely in memory, stream directly — no MinIO, no cleanup jobs
+Module structure
+
+src/modules/export/
+  dto/export-query.dto.ts
+  export.controller.ts
+  export.service.ts      -- calls MetricsService, formats CSV / XLSX
+  export.module.ts       -- imports MetricsModule
+  utils/csv-formatter.ts
+  utils/xlsx-formatter.ts
+Dependency
+exceljs — adds to package.json. Pure JS, no native bindings, works on Windows + Linux. ~2MB.
+
+Implementation Order (when you say proceed)
+
+1. 8.1  DB migration (alerts + alert_events) + schema
+2. 8.1  AlertsService + AlertsController
+3. 8.1  AlertCheckProcessor + email template
+4. 8.1  Wire processor into SyncProcessor (fire-and-forget after upsertMetrics)
+
+5. 8.3  DB migration (custom_metric_definitions) + schema
+6. 8.3  KpiService (built-in derived + custom evaluator) + KpiController
+
+7. 8.8  ForecastService (linear-regression.ts util) + ForecastController
+
+8. 8.7  ExportService (csv-formatter, xlsx-formatter) + ExportController
+        npm install exceljs
+
+9.      Update PROGRESS.md + DECISIONS.md
+Cross-Cutting: What Makes This Production-Ready
+Concern	Solution
+Alert double-fire	cooldownHours + BullMQ jobId dedup per alertId:date
+Alert on stale data	Only enqueued post-sync, never on raw API call
+Forecast on sparse data	Minimum 7 points guard + insufficient_data flag + R² exposed
+KPI formula injection	expr-eval whitelist parser, no eval, variable refs only
+Export memory safety	365-day cap + streamed response (no temp file), @Throttle
+Caching	Alerts list 30s, forecast 1h, KPI 5min (shares MetricsService TTL), export not cached (always fresh)
+Role scoping	All endpoints follow CLIENT_USER assignment check pattern (same as metrics)
+Audit trail	alert_events immutable table; custom_metric_definitions has created_by_id
+d:\projects\agency-backend\improvements.txt
+@agency-backend/improvements.txt   see what AI reviewed and see are they valied if valied and required implement it so that they might make our platfrom even better and stronger and production ready
+The user wants me to read the improvements.txt file again and see what the AI reviewed for the new plan (8.1, 8.8, 8.3, 8.7). Let me read it.
+
+Wait, I already read it earlier. Let me re-read it since the user is saying to see what AI reviewed now - maybe there's new content or they want me to see it in context of the new plan.
+
+Actually, looking at the conversation, the improvements.txt was already read earlier and it contained 6 points about the Phase 8.6/8.2/8.9/8.10 implementation. But now the user opened the file again - maybe there's new content in it for the new plan (8.1/8.8/8.3/8.7)? Let me re-read it to see if the content has changed.
+
+Let me re-read the file — it may have been updated with new review content for the new plan.
+
+Read d:\projects\agency-backend\improvements.txt
+The improvements.txt now has a new review specifically for the 8.1/8.8/8.3/8.7 plan. Let me analyze each point and implement them:
+
+7 CRITICAL fixes:
+
+Alert jobId design fix:
+
+Wrong: alert:${alertId}:${todayDateStr}
+Right: alert:${alertId}:${periodType}:${dateStr} — because weekly alerts have a different date key than daily
+Also: the queue explosion fix at the bottom says the check job should be: alert-check:{tenantId}:{campaignId}:{platform}:{date} (one job per campaign/platform/day, not per alert)
+PERCENT_CHANGE divide-by-zero: Need to handle the case where prior is zero by either skipping the calculation or treating it as a new value
+
+Alert spam: Consolidate all triggered alerts for a campaign into a single batch email instead of sending one per alert
+
+Forecast outlier handling: Expose low R² values (below 0.3) as confidence warnings to the user
+
+KPI variable validation: Verify at creation time that all variable references in the KPI definition actually exist in the platform's metric definitions
+
+Export memory risk: Switch to streaming CSV output row-by-row for large datasets to avoid loading everything into memory
+
+Alert evaluation N+1: Looking at the remaining optimization...
+
+For the alert N+1 issue, I should group alerts by platform and period, fetch the metric summary once per group, then evaluate all alerts in that group against that single result. I also want to add a severity enum to alerts, set up proper KPI caching with the tenant, campaign, platform, and date range in the key, sanitize export filenames, and keep the forecast direction threshold logic as planned. I'm also clarifying the job ID structure—the alert check job uses one key per sync completion while individual alert evaluations use a different dedup key.
+
+Now I'm ready to implement. The architecture is: after sync completes, enqueue one alert-check job per tenant-campaign-platform-date combination to prevent queue explosion, then the processor fetches all alerts for that campaign and platform, groups them, evaluates them together, and batches the emails. I'll start with the database migrations for the alerts, alert events, and custom metric definitions tables, then update the Prisma schema, build out the AlertsService and controller with the severity field and cooldown logic, implement the AlertCheckProcessor with the N+1 fix and batch email handling, create the email template, and wire it into the SyncProcessor as a fire-and-forget job with proper deduplication.
+
+Implementing the remaining services next...
+
+Actually, looking back at the review feedback more carefully: the alert jobId needs to be scoped per-alert and period type with the date, so alert:${alertId}:${periodType}:${dateStr}, and I need to handle the queue explosion risk by batching the check processor to run once per campaign+platform+day instead of per-alert. The AlertCheckProcessor will fetch all active alerts for a given tenant, campaign, and platform, group them by period type, and pull a single metric summary for each group. It'll evaluate each alert while skipping those in cooldown, collect the triggered ones, batch them into a single email per campaign, update the last triggered timestamp for each alert, and log the events. Now I need to implement all four features systematically, starting with installing exceljs for Excel export and expr-eval for evaluating KPI formulas—though I should first verify if these are already in the package.json.
+
+All 7 critical fixes are valid and important. Let me implement them all as part of the full 8.1/8.8/8.3/8.7 implementation, with every fix baked in from the start.
+
+Bash Check if required packages are already installed
+IN
+cat d:/projects/agency-backend/package.json | grep -E "exceljs|expr-eval|mathjs"
+
+OUT
+(Bash completed with no output)
+Bash Check sync processor location
+IN
+ls d:/projects/agency-backend/src/modules/sync/processors/
+
+OUT
+integration-sync.processor.ts
+Bash Install exceljs and expr-eval
+IN
+cd d:/projects/agency-backend && npm install exceljs expr-eval 2>&1 | tail -5
+
+OUT
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 2-56)
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 101-160)
+Good. Now let me build all 4 features with every critical fix incorporated:
+
+Bash Create all module directories and migration directory
+IN
+mkdir -p d:/projects/agency-backend/src/modules/alerts/dto d:/projects/agency-backend/src/modules/alerts/processors && mkdir -p d:/projects/agency-backend/src/modules/kpi/dto d:/projects/agency-backend/src/modules/kpi/utils d:/projects/agency-backend/src/modules/kpi/constants && mkdir -p d:/projects/agency-backend/src/modules/forecast/dto d:/projects/agency-backend/src/modules/forecast/utils && mkdir -p d:/projects/agency-backend/src/modules/export/dto d:/projects/agency-backend/src/modules/export/utils && mkdir -p d:/projects/agency-backend/prisma/migrations/20260422000006_alerts_kpi
+
+OUT
+(Bash completed with no output)
+Migration SQL:
+
+Write migration.sql
+100 lines
+-- CreateEnum
+CREATE TYPE "alert_condition" AS ENUM (
+  'ABOVE',
+  'BELOW',
+  'PERCENT_CHANGE_ABOVE',
+  'PERCENT_CHANGE_BELOW'
+);
+
+-- CreateEnum
+CREATE TYPE "alert_period_type" AS ENUM ('DAILY', 'WEEKLY');
+
+-- CreateEnum
+CREATE TYPE "alert_severity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
+
+-- CreateTable
+CREATE TABLE "alerts" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "tenant_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "platform" "integration_platform" NOT NULL,
+    "metric_key" VARCHAR(100) NOT NULL,
+    "condition" "alert_condition" NOT NULL,
+    "threshold" DECIMAL(20,6) NOT NULL,
+    "period_type" "alert_period_type" NOT NULL DEFAULT 'DAILY',
+    "severity" "alert_severity" NOT NULL DEFAULT 'WARNING',
+    "recipient_emails" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "cooldown_hours" INTEGER NOT NULL DEFAULT 24,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "last_triggered_at" TIMESTAMPTZ(6),
+    "created_by_id" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "alerts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable: immutable audit log — no soft delete, no updated_at
+CREATE TABLE "alert_events" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "tenant_id" UUID NOT NULL,
+    "alert_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "triggered_value" DECIMAL(20,6) NOT NULL,
+    "threshold_value" DECIMAL(20,6) NOT NULL,
+    "condition" TEXT NOT NULL,
+    "severity" TEXT NOT NULL,
+    "emails_sent" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "notified_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "alert_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "custom_metric_definitions" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "tenant_id" UUID NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "formula" TEXT NOT NULL,
+    "variable_keys" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "platform" "integration_platform" NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_by_id" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "custom_metric_definitions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "idx_alerts_campaign" ON "alerts"("tenant_id", "campaign_id", "deleted_at");
+CREATE INDEX "idx_alerts_active" ON "alerts"("tenant_id", "campaign_id", "platform", "is_active") WHERE "deleted_at" IS NULL;
+CREATE INDEX "idx_alert_events_alert" ON "alert_events"("tenant_id", "alert_id");
+CREATE INDEX "idx_alert_events_campaign" ON "alert_events"("tenant_id", "campaign_id", "notified_at" DESC);
+CREATE INDEX "idx_custom_metrics_tenant" ON "custom_metric_definitions"("tenant_id", "platform", "deleted_at");
+
+-- AddForeignKey
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "campaigns"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "agencies"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "alert_events" ADD CONSTRAINT "alert_events_alert_id_fkey" FOREIGN KEY ("alert_id") REFERENCES "alerts"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "alert_events" ADD CONSTRAINT "alert_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "agencies"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "custom_metric_definitions" ADD CONSTRAINT "custom_metric_definitions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "agencies"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "custom_metric_definitions" ADD CONSTRAINT "custom_metric_definitions_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- Enable RLS
+ALTER TABLE "alerts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "alert_events" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "custom_metric_definitions" ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "tenant_isolation" ON "alerts"
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+CREATE POLICY "tenant_isolation" ON "alert_events"
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+CREATE POLICY "tenant_isolation" ON "custom_metric_definitions"
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+Update Prisma schema — add enums + models + relations:
+
+Edit d:\projects\agency-backend\prisma\schema.prisma
+Added 2 lines
+Edit d:\projects\agency-backend\prisma\schema.prisma
+Added 3 lines
+Edit d:\projects\agency-backend\prisma\schema.prisma
+Added 2 lines
+Now add the new models and enums at end of schema:
+
+Read d:\projects\agency-backend\prisma\schema.prisma (lines 481-510)
+Read d:\projects\agency-backend\prisma\schema.prisma (lines 511-530)
+Edit d:\projects\agency-backend\prisma\schema.prisma
+Added 92 lines
+Now build all the modules. Starting with 8.1 Alerts:
+
+Write alert-queue.constants.ts
+2 lines
+export const ALERT_CHECK_QUEUE = 'alert-check';
+Write create-alert.dto.ts
+67 lines
+import {
+  IsString, IsNotEmpty, IsEnum, IsNumber, Min, MaxLength,
+  IsEmail, IsArray, IsOptional, IsInt, Max,
+} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IntegrationPlatform } from '@prisma/client';
+
+// Enums not yet in generated client — mirrors migration SQL
+export enum AlertCondition {
+  ABOVE = 'ABOVE',
+  BELOW = 'BELOW',
+  PERCENT_CHANGE_ABOVE = 'PERCENT_CHANGE_ABOVE',
+  PERCENT_CHANGE_BELOW = 'PERCENT_CHANGE_BELOW',
+}
+
+export enum AlertPeriodType {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+}
+
+export enum AlertSeverity {
+  INFO = 'INFO',
+  WARNING = 'WARNING',
+  CRITICAL = 'CRITICAL',
+}
+
+export class CreateAlertDto {
+  @ApiProperty({ example: 'Sessions dropped below baseline' })
+  @IsString() @IsNotEmpty() @MaxLength(255)
+  name: string;
+
+  @ApiProperty({ enum: IntegrationPlatform })
+  @IsEnum(IntegrationPlatform)
+  platform: IntegrationPlatform;
+
+  @ApiProperty({ example: 'sessions' })
+  @IsString() @IsNotEmpty() @MaxLength(100)
+  metricKey: string;
+
+  @ApiProperty({ enum: AlertCondition })
+  @IsEnum(AlertCondition)
+  condition: AlertCondition;
+
+  @ApiProperty({ example: 500 })
+  @IsNumber() @Min(0)
+  threshold: number;
+
+  @ApiProperty({ enum: AlertPeriodType, default: AlertPeriodType.DAILY })
+  @IsEnum(AlertPeriodType)
+  periodType: AlertPeriodType;
+
+  @ApiProperty({ enum: AlertSeverity, default: AlertSeverity.WARNING })
+  @IsOptional()
+  @IsEnum(AlertSeverity)
+  severity?: AlertSeverity;
+
+  @ApiProperty({ type: [String], example: ['cto@agency.com'] })
+  @IsArray()
+  @IsEmail({}, { each: true })
+  recipientEmails: string[];
+
+  @ApiProperty({ example: 24, description: 'Hours before this alert can fire again' })
+  @IsOptional()
+  @IsInt() @Min(1) @Max(168)
+  cooldownHours?: number;
+}
+Write update-alert.dto.ts
+12 lines
+import { PartialType } from '@nestjs/swagger';
+import { CreateAlertDto } from './create-alert.dto';
+import { IsBoolean, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class UpdateAlertDto extends PartialType(CreateAlertDto) {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+Write alerts.service.ts
+134 lines
+import {
+  Injectable, NotFoundException, ForbiddenException,
+} from '@nestjs/common';
+import { UserRole } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { CreateAlertDto } from './dto/create-alert.dto';
+import { UpdateAlertDto } from './dto/update-alert.dto';
+
+const ADMIN_ROLES: UserRole[] = [UserRole.AGENCY_OWNER, UserRole.AGENCY_ADMIN];
+
+@Injectable()
+export class AlertsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    dto: CreateAlertDto,
+  ) {
+    this.assertAdmin(user);
+    await this.assertCampaignAccess(user, clientId, campaignId);
+
+    return (this.prisma as any).alert.create({
+      data: {
+        tenantId: user.tenantId,
+        campaignId,
+        name: dto.name,
+        platform: dto.platform,
+        metricKey: dto.metricKey,
+        condition: dto.condition,
+        threshold: dto.threshold,
+        periodType: dto.periodType,
+        severity: dto.severity ?? 'WARNING',
+        recipientEmails: dto.recipientEmails,
+        cooldownHours: dto.cooldownHours ?? 24,
+        createdById: user.id,
+      },
+    });
+  }
+
+  async list(user: AuthenticatedUser, clientId: string, campaignId: string) {
+    await this.assertCampaignAccess(user, clientId, campaignId);
+    return (this.prisma as any).alert.findMany({
+      where: { tenantId: user.tenantId, campaignId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async update(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    alertId: string,
+    dto: UpdateAlertDto,
+  ) {
+    this.assertAdmin(user);
+    await this.assertCampaignAccess(user, clientId, campaignId);
+    await this.findAlert(user.tenantId, campaignId, alertId);
+
+    return (this.prisma as any).alert.update({
+      where: { id: alertId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.platform !== undefined && { platform: dto.platform }),
+        ...(dto.metricKey !== undefined && { metricKey: dto.metricKey }),
+        ...(dto.condition !== undefined && { condition: dto.condition }),
+        ...(dto.threshold !== undefined && { threshold: dto.threshold }),
+        ...(dto.periodType !== undefined && { periodType: dto.periodType }),
+        ...(dto.severity !== undefined && { severity: dto.severity }),
+        ...(dto.recipientEmails !== undefined && { recipientEmails: dto.recipientEmails }),
+        ...(dto.cooldownHours !== undefined && { cooldownHours: dto.cooldownHours }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+    });
+  }
+
+  async remove(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    alertId: string,
+  ) {
+    this.assertAdmin(user);
+    await this.assertCampaignAccess(user, clientId, campaignId);
+    await this.findAlert(user.tenantId, campaignId, alertId);
+
+    await (this.prisma as any).alert.update({
+      where: { id: alertId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async getEvents(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    alertId: string,
+  ) {
+    await this.assertCampaignAccess(user, clientId, campaignId);
+    await this.findAlert(user.tenantId, campaignId, alertId);
+
+    return (this.prisma as any).alertEvent.findMany({
+      where: { tenantId: user.tenantId, alertId },
+      orderBy: { notifiedAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  private async findAlert(tenantId: string, campaignId: string, alertId: string) {
+    const alert = await (this.prisma as any).alert.findFirst({
+      where: { id: alertId, tenantId, campaignId, deletedAt: null },
+    });
+    if (!alert) throw new NotFoundException('Alert not found.');
+    return alert;
+  }
+
+  private async assertCampaignAccess(
+    user: AuthenticatedUser, clientId: string, campaignId: string,
+  ) {
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, clientId, tenantId: user.tenantId, deletedAt: null },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found.');
+  }
+
+  private assertAdmin(user: AuthenticatedUser) {
+    if (!ADMIN_ROLES.includes(user.role as UserRole)) {
+      throw new ForbiddenException('Only admins can manage alerts.');
+    }
+  }
+}
+Now the AlertCheckProcessor — this is where all 4 critical fixes for alerts are applied:
+
+Write alert-check.processor.ts
+239 lines
+import { Logger } from '@nestjs/common';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
+import { SystemPrismaService } from '../../../database/system-prisma.service';
+import { TenantContextService } from '../../../common/tenant/tenant-context.service';
+import { MetricsService } from '../../metrics/metrics.service';
+import { EmailService } from '../../email/email.service';
+import { MetricAggregate } from '../../metrics/dto/query-metrics.dto';
+import { computePriorPeriod } from '../../../common/metrics-utils';
+import { ALERT_CHECK_QUEUE } from '../constants/alert-queue.constants';
+
+export interface AlertCheckJobPayload {
+  tenantId: string;
+  campaignId: string;
+  campaignName: string;
+  platform: string;
+}
+
+interface AlertRow {
+  id: string;
+  tenantId: string;
+  campaignId: string;
+  name: string;
+  metricKey: string;
+  condition: string;
+  threshold: number;
+  periodType: string;
+  severity: string;
+  recipientEmails: string[];
+  cooldownHours: number;
+  lastTriggeredAt: Date | null;
+}
+
+@Processor(ALERT_CHECK_QUEUE, { concurrency: 5 })
+export class AlertCheckProcessor extends WorkerHost {
+  private readonly logger = new Logger(AlertCheckProcessor.name);
+
+  constructor(
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly tenantContext: TenantContextService,
+    private readonly metricsService: MetricsService,
+    private readonly emailService: EmailService,
+  ) {
+    super();
+  }
+
+  async process(job: Job<AlertCheckJobPayload>): Promise<void> {
+    const { tenantId, campaignId, campaignName, platform } = job.data;
+
+    await this.tenantContext.run(tenantId, async () => {
+      await this.runChecks(tenantId, campaignId, campaignName, platform);
+    });
+  }
+
+  private async runChecks(
+    tenantId: string,
+    campaignId: string,
+    campaignName: string,
+    platform: string,
+  ): Promise<void> {
+    // Fetch all active alerts for this campaign+platform
+    const alerts: AlertRow[] = await (this.systemPrisma as any).alert.findMany({
+      where: { tenantId, campaignId, platform, isActive: true, deletedAt: null },
+    });
+
+    if (alerts.length === 0) return;
+
+    // FIX #3/#7: Group by period_type — one MetricSummary call per group
+    const byPeriod = new Map<string, AlertRow[]>();
+    for (const alert of alerts) {
+      const key = alert.periodType;
+      if (!byPeriod.has(key)) byPeriod.set(key, []);
+      byPeriod.get(key)!.push(alert);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const triggered: Array<{ alert: AlertRow; currentValue: number }> = [];
+
+    for (const [periodType, group] of byPeriod) {
+      const { from, to } = this.periodRange(periodType, today);
+
+      // One summary call per group (N+1 fix — not per alert)
+      const metricKeys = [...new Set(group.map(a => a.metricKey))];
+      const current = await this.metricsService.getMetricSummary(
+        tenantId, campaignId, platform as any, from, to, metricKeys, MetricAggregate.SUM,
+      );
+
+      // For PERCENT_CHANGE conditions, fetch prior period once per group
+      const needsPrior = group.some(a =>
+        a.condition === 'PERCENT_CHANGE_ABOVE' || a.condition === 'PERCENT_CHANGE_BELOW',
+      );
+
+      let prior: Record<string, number> = {};
+      if (needsPrior) {
+        const priorRange = computePriorPeriod(from, to);
+        const priorResult = await this.metricsService.getMetricSummary(
+          tenantId, campaignId, platform as any,
+          priorRange.from, priorRange.to, metricKeys, MetricAggregate.SUM,
+        );
+        prior = priorResult.metrics;
+      }
+
+      for (const alert of group) {
+        // Skip if within cooldown window
+        if (this.withinCooldown(alert)) continue;
+
+        const currentValue = current.metrics[alert.metricKey] ?? 0;
+        const fired = this.evaluate(alert, currentValue, prior[alert.metricKey] ?? 0);
+
+        if (fired) {
+          triggered.push({ alert, currentValue });
+        }
+      }
+    }
+
+    if (triggered.length === 0) return;
+
+    // FIX #3: One batched email per campaign, not one per alert
+    const allRecipients = [
+      ...new Set(triggered.flatMap(t => t.alert.recipientEmails)),
+    ];
+
+    if (allRecipients.length > 0) {
+      await this.sendBatchAlertEmail(
+        tenantId, campaignId, campaignName, platform, triggered, allRecipients,
+      ).catch(err =>
+        this.logger.error(`Alert email failed for campaign ${campaignId}: ${String(err)}`),
+      );
+    }
+
+    // Persist events and update lastTriggeredAt
+    const now = new Date();
+    for (const { alert, currentValue } of triggered) {
+      await (this.systemPrisma as any).alertEvent.create({
+        data: {
+          tenantId,
+          alertId: alert.id,
+          campaignId,
+          triggeredValue: currentValue,
+          thresholdValue: alert.threshold,
+          condition: alert.condition,
+          severity: alert.severity,
+          emailsSent: allRecipients,
+          notifiedAt: now,
+        },
+      });
+
+      await (this.systemPrisma as any).alert.update({
+        where: { id: alert.id },
+        data: { lastTriggeredAt: now },
+      });
+    }
+
+    this.logger.log(
+      `Alert check: ${triggered.length} alerts fired for campaign ${campaignId} (${platform})`,
+    );
+  }
+
+  // ─── Condition evaluation (FIX #2: zero-division guard) ────────────────────
+
+  private evaluate(alert: AlertRow, current: number, prior: number): boolean {
+    const threshold = Number(alert.threshold);
+
+    switch (alert.condition) {
+      case 'ABOVE': return current > threshold;
+      case 'BELOW': return current < threshold;
+      case 'PERCENT_CHANGE_ABOVE':
+      case 'PERCENT_CHANGE_BELOW': {
+        if (prior === 0) return false; // FIX #2: zero prior = no baseline, skip
+        const changePct = ((current - prior) / prior) * 100;
+        return alert.condition === 'PERCENT_CHANGE_ABOVE'
+          ? changePct > threshold
+          : changePct < threshold;
+      }
+      default: return false;
+    }
+  }
+
+  // ─── Cooldown check ─────────────────────────────────────────────────────────
+
+  private withinCooldown(alert: AlertRow): boolean {
+    if (!alert.lastTriggeredAt) return false;
+    const diffMs = Date.now() - alert.lastTriggeredAt.getTime();
+    return diffMs < alert.cooldownHours * 3_600_000;
+  }
+
+  // ─── Period range (UTC, inclusive) ─────────────────────────────────────────
+
+  private periodRange(periodType: string, today: string): { from: string; to: string } {
+    if (periodType === 'WEEKLY') {
+      const end = new Date(today + 'T00:00:00Z');
+      const start = new Date(end.getTime() - 6 * 86_400_000);
+      return { from: start.toISOString().slice(0, 10), to: today };
+    }
+    return { from: today, to: today };
+  }
+
+  // ─── Batch email ─────────────────────────────────────────────────────────────
+
+  private async sendBatchAlertEmail(
+    tenantId: string,
+    campaignId: string,
+    campaignName: string,
+    platform: string,
+    triggered: Array<{ alert: AlertRow; currentValue: number }>,
+    recipients: string[],
+  ): Promise<void> {
+    // Build plain summary subject
+    const criticalCount = triggered.filter(t => t.alert.severity === 'CRITICAL').length;
+    const subject = criticalCount > 0
+      ? `[CRITICAL] ${criticalCount} alert(s) fired — ${campaignName}`
+      : `[Alert] ${triggered.length} alert(s) fired — ${campaignName}`;
+
+    const lines = triggered.map(({ alert, currentValue }) =>
+      `• [${alert.severity}] ${alert.name}: ${alert.metricKey} = ${currentValue} (threshold: ${alert.threshold})`,
+    ).join('\n');
+
+    // Reuse sendReportDelivery signature style — inline simple HTML
+    const html = `
+      <h2>Campaign Alert — ${campaignName}</h2>
+      <p><strong>Platform:</strong> ${platform}</p>
+      <p>The following alerts were triggered:</p>
+      <ul>
+        ${triggered.map(({ alert, currentValue }) => `
+          <li>
+            <strong>[${alert.severity}] ${alert.name}</strong><br/>
+            Metric: <code>${alert.metricKey}</code> &nbsp;|&nbsp;
+            Value: <strong>${currentValue}</strong> &nbsp;|&nbsp;
+            Condition: ${alert.condition.replace(/_/g, ' ')} ${alert.threshold}
+          </li>
+        `).join('')}
+      </ul>
+      <p style="color:#888;font-size:12px">AgencyPulse Alert System</p>
+    `;
+
+    await this.emailService.sendRaw(recipients, subject, html);
+  }
+}
+I need to add sendRaw to EmailService:
+
+Edit d:\projects\agency-backend\src\modules\email\email.service.ts
+Added 15 lines
+Write alerts.controller.ts
+74 lines
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AlertsService } from './alerts.service';
+import { CreateAlertDto } from './dto/create-alert.dto';
+import { UpdateAlertDto } from './dto/update-alert.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+
+@ApiTags('Alerts')
+@ApiBearerAuth()
+@Controller('clients/:clientId/campaigns/:campaignId/alerts')
+export class AlertsController {
+  constructor(private readonly alertsService: AlertsService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create an alert for a campaign (admin only)' })
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Body() dto: CreateAlertDto,
+  ) {
+    return this.alertsService.create(user, clientId, campaignId, dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List alerts for a campaign' })
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return this.alertsService.list(user, clientId, campaignId);
+  }
+
+  @Patch(':alertId')
+  @ApiOperation({ summary: 'Update an alert (admin only)' })
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Param('alertId') alertId: string,
+    @Body() dto: UpdateAlertDto,
+  ) {
+    return this.alertsService.update(user, clientId, campaignId, alertId, dto);
+  }
+
+  @Delete(':alertId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an alert (admin only, soft delete)' })
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Param('alertId') alertId: string,
+  ) {
+    return this.alertsService.remove(user, clientId, campaignId, alertId);
+  }
+
+  @Get(':alertId/events')
+  @ApiOperation({ summary: 'Get alert fire history (last 100 events)' })
+  getEvents(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Param('alertId') alertId: string,
+  ) {
+    return this.alertsService.getEvents(user, clientId, campaignId, alertId);
+  }
+}
+Write alerts.module.ts
+29 lines
+import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { AlertsController } from './alerts.controller';
+import { AlertsService } from './alerts.service';
+import { AlertCheckProcessor } from './processors/alert-check.processor';
+import { MetricsModule } from '../metrics/metrics.module';
+import { EmailModule } from '../email/email.module';
+import { ALERT_CHECK_QUEUE } from './constants/alert-queue.constants';
+
+@Module({
+  imports: [
+    BullModule.registerQueue({
+      name: ALERT_CHECK_QUEUE,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'fixed', delay: 30_000 },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { age: 3 * 24 * 3600 },
+      },
+    }),
+    MetricsModule,
+    EmailModule,
+  ],
+  controllers: [AlertsController],
+  providers: [AlertsService, AlertCheckProcessor],
+  exports: [AlertsService],
+})
+export class AlertsModule {}
+Now wire the alert check trigger into the sync processor. I need to inject the BullMQ queue into IntegrationSyncProcessor:
+
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 2-19)
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 31-50)
+Edit d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts
+Added 3 lines
+Edit d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts
+Added 19 lines
+Now add the fire-and-forget call after each upsertMetrics. Let me find the three upsertMetrics calls:
+
+Bash Find upsertMetrics calls in sync processor
+IN
+grep -n "upsertMetrics\|campaignId, platform\|this.logger.log.*sync complete" d:/projects/agency-backend/src/modules/sync/processors/integration-sync.processor.ts | head -20
+
+OUT
+94:      const { tenantId, campaignId, platform } = job.data;
+96:        await this.integrationsService.markError(tenantId, campaignId, platform, error.message);
+100:        { tenantId, campaignId, platform, error: error.message },
+108:    const { tenantId, campaignId, platform, dateRange } = job.data;
+113:      const connection = await this.getActiveConnection(job.id!, tenantId, campaignId, platform);
+121:        await this.integrationsService.markExpired(tenantId, campaignId, platform, (err as Error).message);
+123:          tenantId, campaignId, platform,
+128:      await this.executeWithErrorHandling(job, tenantId, campaignId, platform, async () => {
+147:        await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);
+149:        this.logger.log(`[${job.id}] GA4 sync complete — ${metricRows.length} metric rows stored`, {
+150:          tenantId, campaignId, platform,
+161:    const { tenantId, campaignId, platform, dateRange } = job.data;
+165:      const connection = await this.getActiveConnection(job.id!, tenantId, campaignId, platform);
+172:        await this.integrationsService.markExpired(tenantId, campaignId, platform, (err as Error).message);
+174:          tenantId, campaignId, platform,
+179:      await this.executeWithErrorHandling(job, tenantId, campaignId, platform, async () => {
+203:        await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);
+205:        this.logger.log(`[${job.id}] Google Ads sync complete — ${metricRows.length} metric rows stored`, {
+206:          tenantId, campaignId, platform,
+217:    const { tenantId, campaignId, platform, dateRange } = job.data;
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 146-153)
+I need to get the campaign name for the alert email. Let me do a single lookup inside executeWithErrorHandling by reading the campaign name from job data or prisma. The simplest approach is to fetch campaign name at the point of enqueueing — add it to the sync job payload or fetch it inline:
+
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 148-209)
+Bash Find all three upsertMetrics lines
+IN
+grep -n "upsertMetrics" d:/projects/agency-backend/src/modules/sync/processors/integration-sync.processor.ts
+
+OUT
+147:        await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);
+203:        await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);
+258:        await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);
+The cleanest approach: add campaignName to SyncJobPayload and use it in all three places. Let me check the payload:
+
+Bash Check SyncJobPayload
+IN
+cat d:/projects/agency-backend/src/modules/sync/dto/sync-job.dto.ts
+
+OUT
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IntegrationPlatform } from '@prisma/client';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/** Payload stored in every BullMQ job on the integration-sync queue */
+export interface SyncJobPayload {
+  tenantId: string;
+  campaignId: string;
+  platform: IntegrationPlatform;
+  dateRange: {
+    from: string; // YYYY-MM-DD UTC
+    to: string;   // YYYY-MM-DD UTC
+  };
+}
+
+/** Body for POST /sync/trigger — manual sync for development/testing */
+export class ManualTriggerDto {
+  @ApiProperty({ description: 'Campaign ID to sync.' })
+  @IsUUID()
+  campaignId: string;
+
+  @ApiPropertyOptional({
+    enum: IntegrationPlatform,
+    description: 'Specific platform to sync. Omit to sync all connected platforms.',
+  })
+  @IsOptional()
+  @IsEnum(IntegrationPlatform)
+  platform?: IntegrationPlatform;
+}
+Edit d:\projects\agency-backend\src\modules\sync\dto\sync-job.dto.ts
+Added 1 line
+Now check sync.service.ts to see where jobs are created and add campaignName there:
+
+Bash Find where sync jobs are enqueued
+IN
+grep -n "campaignId\|campaignName\|queue.add\|add(" d:/projects/agency-backend/src/modules/sync/sync.service.ts | head -20
+
+OUT
+25:    campaignId: string,
+39:    const jobId = buildSyncJobId(tenantId, campaignId, platform, range.from, range.to);
+43:      campaignId,
+50:    await this.queue.add(jobName, payload, {
+63:    campaignId: string,
+69:        this.dispatchSync(tenantId, campaignId, platform, dateRange),
+Read d:\projects\agency-backend\src\modules\sync\sync.service.ts (lines 21-70)
+Edit d:\projects\agency-backend\src\modules\sync\sync.service.ts
+Added 2 lines
+Now add the enqueueAlertCheck calls after each upsertMetrics in the processor:
+
+Read d:\projects\agency-backend\src\modules\sync\processors\integration-sync.processor.ts (lines 148-151)
+Bash Add alert check trigger after each upsertMetrics call
+IN
+sed -i 's/await this\.metricsService\.upsertMetrics(tenantId, campaignId, platform, metricRows);/await this.metricsService.upsertMetrics(tenantId, campaignId, platform, metricRows);\n        void this.enqueueAlertCheck(tenantId, campaignId, job.data.campaignName, String(platform));/g' d:/projects/agency-backend/src/modules/sync/processors/integration-sync.processor.ts
+
+OUT
+(Bash completed with no output)
+Now add ALERT_CHECK_QUEUE to SyncModule imports:
+
+Edit d:\projects\agency-backend\src\modules\sync\sync.module.ts
+Edit failed
+Read d:\projects\agency-backend\src\modules\sync\sync.module.ts
+Edit d:\projects\agency-backend\src\modules\sync\sync.module.ts
+Added 1 line
+Edit d:\projects\agency-backend\src\modules\sync\sync.module.ts
+Removed 1 line
+Edit d:\projects\agency-backend\src\modules\sync\sync.module.ts
+Added 3 lines
+Now build 8.8 Forecast with OLS + FIX #4 (r² < 0.3 = low confidence):
+
+Write linear-regression.ts
+91 lines
+/**
+ * Ordinary Least Squares linear regression.
+ * Pure math — no dependencies, unit-testable.
+ */
+
+export interface RegressionResult {
+  slope: number;
+  intercept: number;
+  r2: number;            // 0–1, goodness of fit
+  residualStdDev: number; // used for confidence interval
+  direction: 'UP' | 'DOWN' | 'FLAT';
+  lowConfidence: boolean; // true when r2 < 0.3 (FIX #4)
+}
+
+export interface ForecastPoint {
+  date: string;
+  projected: number;
+  lower: number;
+  upper: number;
+}
+
+const FLAT_THRESHOLD = 0.02; // 2% slope-to-mean ratio = FLAT
+const LOW_CONFIDENCE_R2 = 0.3;
+const Z_95 = 1.96; // 95% confidence interval
+
+export function olsRegression(values: number[]): RegressionResult {
+  const n = values.length;
+  const xs = values.map((_, i) => i);
+  const ys = values;
+
+  const sumX = xs.reduce((a, b) => a + b, 0);
+  const sumY = ys.reduce((a, b) => a + b, 0);
+  const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
+  const sumX2 = xs.reduce((a, x) => a + x * x, 0);
+
+  const denom = n * sumX2 - sumX * sumX;
+  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+
+  // R²
+  const meanY = sumY / n;
+  const ssTot = ys.reduce((a, y) => a + (y - meanY) ** 2, 0);
+  const ssRes = ys.reduce((a, y, i) => a + (y - (slope * i + intercept)) ** 2, 0);
+  const r2 = ssTot === 0 ? 1 : Math.max(0, 1 - ssRes / ssTot);
+
+  // Residual std deviation (for confidence band)
+  const residualStdDev = Math.sqrt(ssRes / Math.max(n - 2, 1));
+
+  // Direction
+  const absRatio = meanY !== 0 ? Math.abs(slope / meanY) : 0;
+  const direction: 'UP' | 'DOWN' | 'FLAT' =
+    absRatio < FLAT_THRESHOLD ? 'FLAT' : slope > 0 ? 'UP' : 'DOWN';
+
+  return {
+    slope: Math.round(slope * 10000) / 10000,
+    intercept: Math.round(intercept * 10000) / 10000,
+    r2: Math.round(r2 * 10000) / 10000,
+    residualStdDev: Math.round(residualStdDev * 10000) / 10000,
+    direction,
+    lowConfidence: r2 < LOW_CONFIDENCE_R2,
+  };
+}
+
+export function buildForecast(
+  regression: RegressionResult,
+  historyLength: number,
+  forecastDays: number,
+  fromDate: string,
+): ForecastPoint[] {
+  const startMs = Date.UTC(
+    parseInt(fromDate.slice(0, 4), 10),
+    parseInt(fromDate.slice(5, 7), 10) - 1,
+    parseInt(fromDate.slice(8, 10), 10),
+  );
+  const band = regression.residualStdDev * Z_95;
+
+  const points: ForecastPoint[] = [];
+  for (let d = 1; d <= forecastDays; d++) {
+    const x = historyLength - 1 + d;
+    const projected = Math.max(0, regression.slope * x + regression.intercept);
+    const date = new Date(startMs + d * 86_400_000).toISOString().slice(0, 10);
+    points.push({
+      date,
+      projected: Math.round(projected * 100) / 100,
+      lower: Math.max(0, Math.round((projected - band) * 100) / 100),
+      upper: Math.round((projected + band) * 100) / 100,
+    });
+  }
+  return points;
+}
+Write forecast-query.dto.ts
+31 lines
+import { IsDateString, IsEnum, IsString, IsOptional, IsInt, Min, Max } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IntegrationPlatform } from '@prisma/client';
+import { Type } from 'class-transformer';
+
+export class ForecastQueryDto {
+  @ApiProperty({ enum: IntegrationPlatform })
+  @IsEnum(IntegrationPlatform)
+  platform: IntegrationPlatform;
+
+  @ApiProperty({ example: 'sessions' })
+  @IsString()
+  metricKey: string;
+
+  @ApiProperty({ example: '2026-04-01', description: 'Historical window start' })
+  @IsDateString()
+  from: string;
+
+  @ApiProperty({ example: '2026-04-30', description: 'Historical window end' })
+  @IsDateString()
+  to: string;
+
+  @ApiProperty({ example: 30, description: 'Days to forecast ahead (1–90)', default: 30 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  forecastDays?: number;
+}
+Write forecast.service.ts
+110 lines
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { UserRole, IntegrationPlatform } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
+import { MetricsService } from '../metrics/metrics.service';
+import { MetricGranularity, MetricAggregate } from '../metrics/dto/query-metrics.dto';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { olsRegression, buildForecast } from './utils/linear-regression';
+import { ForecastQueryDto } from './dto/forecast-query.dto';
+
+const FORECAST_CACHE_TTL = 3600; // 1 hour — historical data doesn't change
+const MIN_DATA_POINTS = 7;
+
+@Injectable()
+export class ForecastService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metrics: MetricsService,
+    private readonly cache: CacheService,
+  ) {}
+
+  async getForecast(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    dto: ForecastQueryDto,
+  ) {
+    await this.assertCampaignAccess(user, clientId, campaignId);
+
+    const forecastDays = dto.forecastDays ?? 30;
+    const cacheKey = `forecast:${user.tenantId}:${campaignId}:${dto.platform}:${dto.metricKey}:${dto.from}:${dto.to}:${forecastDays}`;
+
+    return this.cache.getOrSet(cacheKey, FORECAST_CACHE_TTL, async () => {
+      const timeSeries = await this.metrics.getMetrics(
+        user.tenantId, campaignId, dto.platform,
+        dto.from, dto.to,
+        [dto.metricKey],
+        MetricGranularity.DAY,
+        MetricAggregate.SUM,
+      );
+
+      if (timeSeries.length < MIN_DATA_POINTS) {
+        return {
+          insufficient_data: true,
+          dataPoints: timeSeries.length,
+          minimumRequired: MIN_DATA_POINTS,
+          metricKey: dto.metricKey,
+          platform: dto.platform,
+        };
+      }
+
+      const values = timeSeries.map(row => row.metrics[dto.metricKey] ?? 0);
+      const historical = timeSeries.map(row => ({
+        date: row.period,
+        actual: row.metrics[dto.metricKey] ?? 0,
+      }));
+
+      const regression = olsRegression(values);
+      const forecast = buildForecast(regression, values.length, forecastDays, dto.to);
+
+      const projectedTotal = forecast.reduce((sum, p) => sum + p.projected, 0);
+
+      return {
+        insufficient_data: false,
+        metricKey: dto.metricKey,
+        platform: dto.platform,
+        // FIX #4: expose low confidence flag prominently
+        trend: {
+          slope: regression.slope,
+          intercept: regression.intercept,
+          r2: regression.r2,
+          direction: regression.direction,
+          lowConfidence: regression.lowConfidence,
+          confidenceNote: regression.lowConfidence
+            ? 'R² < 0.3 — trend fit is weak, forecast may be unreliable'
+            : null,
+        },
+        currentPeriod: { from: dto.from, to: dto.to },
+        forecastPeriod: {
+          from: forecast[0]?.date ?? null,
+          to: forecast[forecast.length - 1]?.date ?? null,
+          days: forecastDays,
+        },
+        historical,
+        forecast,
+        forecastSummary: {
+          projectedTotal: Math.round(projectedTotal * 100) / 100,
+          projectedEndValue: forecast[forecast.length - 1]?.projected ?? 0,
+          confidenceLevel: 0.95,
+        },
+      };
+    });
+  }
+
+  private async assertCampaignAccess(
+    user: AuthenticatedUser, clientId: string, campaignId: string,
+  ) {
+    const isClient = user.role === UserRole.CLIENT_USER;
+    const campaign = await this.prisma.campaign.findFirst({
+      where: {
+        id: campaignId, clientId, tenantId: user.tenantId, deletedAt: null,
+        ...(isClient && {
+          client: { clientUserAssignments: { some: { userId: user.id } } },
+        }),
+      },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found.');
+  }
+}
+Write forecast.controller.ts
+27 lines
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { ForecastService } from './forecast.service';
+import { ForecastQueryDto } from './dto/forecast-query.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+
+@ApiTags('Forecast')
+@ApiBearerAuth()
+@Controller('clients/:clientId/campaigns/:campaignId/forecast')
+export class ForecastController {
+  constructor(private readonly forecastService: ForecastService) {}
+
+  @Get()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Get linear trend forecast for a metric' })
+  getForecast(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Query() query: ForecastQueryDto,
+  ) {
+    return this.forecastService.getForecast(user, clientId, campaignId, query);
+  }
+}
+Write forecast.module.ts
+13 lines
+import { Module } from '@nestjs/common';
+import { ForecastController } from './forecast.controller';
+import { ForecastService } from './forecast.service';
+import { MetricsModule } from '../metrics/metrics.module';
+import { CacheModule } from '../../common/cache/cache.module';
+
+@Module({
+  imports: [MetricsModule, CacheModule],
+  controllers: [ForecastController],
+  providers: [ForecastService],
+})
+export class ForecastModule {}
+Now 8.3 KPI Engine with FIX #5 (variable validation against metric_definitions):
+
+Write built-in-kpis.ts
+108 lines
+import { IntegrationPlatform } from '@prisma/client';
+
+export interface BuiltInKpi {
+  key: string;
+  label: string;
+  formula: string;         // human-readable, for docs
+  variables: string[];     // base metric keys needed
+  compute: (m: Record<string, number>) => number | null;
+}
+
+const safe = (fn: () => number): number | null => {
+  try {
+    const result = fn();
+    return isFinite(result) ? result : null;
+  } catch {
+    return null;
+  }
+};
+
+// Per-platform built-in KPIs
+export const BUILT_IN_KPIS: Partial<Record<IntegrationPlatform, BuiltInKpi[]>> = {
+  [IntegrationPlatform.GOOGLE_ADS]: [
+    {
+      key: 'ctr_calc',
+      label: 'CTR (calculated)',
+      formula: 'clicks / impressions * 100',
+      variables: ['clicks', 'impressions'],
+      compute: m => safe(() => m.impressions > 0 ? (m.clicks / m.impressions) * 100 : null!),
+    },
+    {
+      key: 'cpc_calc',
+      label: 'CPC (calculated)',
+      formula: 'cost / clicks',
+      variables: ['cost', 'clicks'],
+      compute: m => safe(() => m.clicks > 0 ? m.cost / m.clicks : null!),
+    },
+    {
+      key: 'cpm',
+      label: 'CPM',
+      formula: 'cost / impressions * 1000',
+      variables: ['cost', 'impressions'],
+      compute: m => safe(() => m.impressions > 0 ? (m.cost / m.impressions) * 1000 : null!),
+    },
+    {
+      key: 'cpa',
+      label: 'Cost per Acquisition',
+      formula: 'cost / conversions',
+      variables: ['cost', 'conversions'],
+      compute: m => safe(() => m.conversions > 0 ? m.cost / m.conversions : null!),
+    },
+    {
+      key: 'conversion_rate',
+      label: 'Conversion Rate',
+      formula: 'conversions / clicks * 100',
+      variables: ['conversions', 'clicks'],
+      compute: m => safe(() => m.clicks > 0 ? (m.conversions / m.clicks) * 100 : null!),
+    },
+  ],
+
+  [IntegrationPlatform.META_ADS]: [
+    {
+      key: 'ctr_calc',
+      label: 'CTR (calculated)',
+      formula: 'clicks / impressions * 100',
+      variables: ['clicks', 'impressions'],
+      compute: m => safe(() => m.impressions > 0 ? (m.clicks / m.impressions) * 100 : null!),
+    },
+    {
+      key: 'cpc_calc',
+      label: 'CPC (calculated)',
+      formula: 'spend / clicks',
+      variables: ['spend', 'clicks'],
+      compute: m => safe(() => m.clicks > 0 ? m.spend / m.clicks : null!),
+    },
+    {
+      key: 'cpm',
+      label: 'CPM',
+      formula: 'spend / impressions * 1000',
+      variables: ['spend', 'impressions'],
+      compute: m => safe(() => m.impressions > 0 ? (m.spend / m.impressions) * 1000 : null!),
+    },
+    {
+      key: 'cpa',
+      label: 'Cost per Acquisition',
+      formula: 'spend / conversions',
+      variables: ['spend', 'conversions'],
+      compute: m => safe(() => m.conversions > 0 ? m.spend / m.conversions : null!),
+    },
+    {
+      key: 'conversion_rate',
+      label: 'Conversion Rate',
+      formula: 'conversions / clicks * 100',
+      variables: ['conversions', 'clicks'],
+      compute: m => safe(() => m.clicks > 0 ? (m.conversions / m.clicks) * 100 : null!),
+    },
+  ],
+
+  [IntegrationPlatform.GA4]: [
+    {
+      key: 'pages_per_session',
+      label: 'Pages per Session',
+      formula: 'screenPageViews / sessions',
+      variables: ['screenPageViews', 'sessions'],
+      compute: m => safe(() => m.sessions > 0 ? m.screenPageViews / m.sessions : null!),
+    },
+  ],
+};
+Write formula-evaluator.ts
+50 lines
+import { Parser } from 'expr-eval';
+import { BadRequestException } from '@nestjs/common';
+
+// Only allow these characters in a formula — prevents injection of any kind
+const SAFE_FORMULA_REGEX = /^[a-zA-Z0-9_\s+\-*/().]+$/;
+const parser = new Parser();
+
+/**
+ * Validates and parses a user-defined formula string.
+ * Extracts variable names and verifies syntax.
+ * Returns variable keys used in the formula.
+ */
+export function validateFormula(formula: string): string[] {
+  if (!SAFE_FORMULA_REGEX.test(formula)) {
+    throw new BadRequestException(
+      'Formula contains invalid characters. Only alphanumeric identifiers and +, -, *, /, (, ) are allowed.',
+    );
+  }
+  if (formula.length > 500) {
+    throw new BadRequestException('Formula must be 500 characters or fewer.');
+  }
+
+  let expr;
+  try {
+    expr = parser.parse(formula);
+  } catch {
+    throw new BadRequestException(`Invalid formula syntax: ${formula}`);
+  }
+
+  return expr.variables();
+}
+
+/**
+ * Evaluates a validated formula with the given variable values.
+ * Returns null if denominator would be zero or result is not finite.
+ */
+export function evaluateFormula(
+  formula: string,
+  variables: Record<string, number>,
+): number | null {
+  try {
+    const expr = parser.parse(formula);
+    const result = expr.evaluate(variables);
+    if (!isFinite(result) || isNaN(result)) return null;
+    return Math.round(result * 1000000) / 1000000; // 6dp precision
+  } catch {
+    return null;
+  }
+}
+Write create-kpi-definition.dto.ts
+18 lines
+import { IsString, IsNotEmpty, IsEnum, MaxLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IntegrationPlatform } from '@prisma/client';
+
+export class CreateKpiDefinitionDto {
+  @ApiProperty({ example: 'My ROAS' })
+  @IsString() @IsNotEmpty() @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ example: 'revenue / spend', description: 'Math expression using metric keys as variables' })
+  @IsString() @IsNotEmpty() @MaxLength(500)
+  formula: string;
+
+  @ApiProperty({ enum: IntegrationPlatform })
+  @IsEnum(IntegrationPlatform)
+  platform: IntegrationPlatform;
+}
+Write kpi-query.dto.ts
+18 lines
+import { IsDateString, IsEnum } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IntegrationPlatform } from '@prisma/client';
+
+export class KpiQueryDto {
+  @ApiProperty({ enum: IntegrationPlatform })
+  @IsEnum(IntegrationPlatform)
+  platform: IntegrationPlatform;
+
+  @ApiProperty({ example: '2026-04-01' })
+  @IsDateString()
+  from: string;
+
+  @ApiProperty({ example: '2026-04-30' })
+  @IsDateString()
+  to: string;
+}
+Write kpi.service.ts
+188 lines
+import {
+  Injectable, NotFoundException, ForbiddenException, BadRequestException,
+} from '@nestjs/common';
+import { UserRole, IntegrationPlatform } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
+import { MetricsService } from '../metrics/metrics.service';
+import { MetricAggregate } from '../metrics/dto/query-metrics.dto';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { BUILT_IN_KPIS } from './constants/built-in-kpis';
+import { validateFormula, evaluateFormula } from './utils/formula-evaluator';
+import { CreateKpiDefinitionDto } from './dto/create-kpi-definition.dto';
+import { KpiQueryDto } from './dto/kpi-query.dto';
+
+const ADMIN_ROLES: UserRole[] = [UserRole.AGENCY_OWNER, UserRole.AGENCY_ADMIN];
+const KPI_CACHE_TTL = 300; // 5 minutes — matches MetricsService TTL
+
+@Injectable()
+export class KpiService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metrics: MetricsService,
+    private readonly cache: CacheService,
+  ) {}
+
+  // ─── KPI Query ────────────────────────────────────────────────────────────────
+
+  async getKpis(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    dto: KpiQueryDto,
+  ) {
+    await this.assertCampaignAccess(user, clientId, campaignId);
+
+    // FIX: consistent cache key format
+    const cacheKey = `kpi:${user.tenantId}:${campaignId}:${dto.platform}:${dto.from}:${dto.to}`;
+
+    return this.cache.getOrSet(cacheKey, KPI_CACHE_TTL, async () => {
+      const summary = await this.metrics.getMetricSummary(
+        user.tenantId, campaignId, dto.platform,
+        dto.from, dto.to, undefined, MetricAggregate.SUM,
+      );
+      const base = summary.metrics;
+
+      // Built-in derived metrics
+      const builtIns = BUILT_IN_KPIS[dto.platform] ?? [];
+      const derived: Record<string, number | null> = {};
+      for (const kpi of builtIns) {
+        derived[kpi.key] = kpi.compute(base);
+      }
+
+      // Custom tenant-defined metrics for this platform
+      const customDefs = await (this.prisma as any).customMetricDefinition.findMany({
+        where: { tenantId: user.tenantId, platform: dto.platform, isActive: true, deletedAt: null },
+      });
+
+      const custom: Record<string, number | null> = {};
+      for (const def of customDefs) {
+        const vars: Record<string, number> = {};
+        for (const key of def.variableKeys as string[]) {
+          vars[key] = base[key] ?? 0;
+        }
+        custom[def.name] = evaluateFormula(def.formula, vars);
+      }
+
+      return { base, derived, custom };
+    });
+  }
+
+  // ─── Custom metric CRUD ───────────────────────────────────────────────────────
+
+  async createDefinition(user: AuthenticatedUser, dto: CreateKpiDefinitionDto) {
+    this.assertAdmin(user);
+
+    // FIX #5: validate formula syntax + extract variables
+    const variableKeys = validateFormula(dto.formula);
+
+    // FIX #5: verify all variables exist in metric_definitions for this platform
+    await this.assertVariablesExist(dto.platform, variableKeys);
+
+    return (this.prisma as any).customMetricDefinition.create({
+      data: {
+        tenantId: user.tenantId,
+        name: dto.name,
+        formula: dto.formula,
+        variableKeys,
+        platform: dto.platform,
+        createdById: user.id,
+      },
+    });
+  }
+
+  async listDefinitions(user: AuthenticatedUser, platform?: IntegrationPlatform) {
+    return (this.prisma as any).customMetricDefinition.findMany({
+      where: {
+        tenantId: user.tenantId,
+        deletedAt: null,
+        ...(platform && { platform }),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateDefinition(user: AuthenticatedUser, defId: string, dto: Partial<CreateKpiDefinitionDto>) {
+    this.assertAdmin(user);
+    const existing = await this.findDefinition(user.tenantId, defId);
+
+    let variableKeys: string[] | undefined;
+    if (dto.formula !== undefined) {
+      variableKeys = validateFormula(dto.formula);
+      const platform = dto.platform ?? existing.platform;
+      await this.assertVariablesExist(platform, variableKeys);
+    }
+
+    return (this.prisma as any).customMetricDefinition.update({
+      where: { id: defId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.formula !== undefined && { formula: dto.formula, variableKeys }),
+        ...(dto.platform !== undefined && { platform: dto.platform }),
+      },
+    });
+  }
+
+  async removeDefinition(user: AuthenticatedUser, defId: string) {
+    this.assertAdmin(user);
+    await this.findDefinition(user.tenantId, defId);
+    await (this.prisma as any).customMetricDefinition.update({
+      where: { id: defId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  // ─── Private helpers ──────────────────────────────────────────────────────────
+
+  private async findDefinition(tenantId: string, defId: string) {
+    const def = await (this.prisma as any).customMetricDefinition.findFirst({
+      where: { id: defId, tenantId, deletedAt: null },
+    });
+    if (!def) throw new NotFoundException('KPI definition not found.');
+    return def;
+  }
+
+  // FIX #5: verify variables exist in metric_definitions
+  private async assertVariablesExist(
+    platform: IntegrationPlatform,
+    variableKeys: string[],
+  ): Promise<void> {
+    if (variableKeys.length === 0) return;
+
+    const existing = await this.prisma.metricDefinition.findMany({
+      where: { platform, metricKey: { in: variableKeys } },
+      select: { metricKey: true },
+    });
+
+    const found = new Set(existing.map(m => m.metricKey));
+    const missing = variableKeys.filter(k => !found.has(k));
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Formula references unknown metric keys for platform ${platform}: ${missing.join(', ')}`,
+      );
+    }
+  }
+
+  private async assertCampaignAccess(
+    user: AuthenticatedUser, clientId: string, campaignId: string,
+  ) {
+    const isClient = user.role === UserRole.CLIENT_USER;
+    const campaign = await this.prisma.campaign.findFirst({
+      where: {
+        id: campaignId, clientId, tenantId: user.tenantId, deletedAt: null,
+        ...(isClient && {
+          client: { clientUserAssignments: { some: { userId: user.id } } },
+        }),
+      },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found.');
+  }
+
+  private assertAdmin(user: AuthenticatedUser) {
+    if (!ADMIN_ROLES.includes(user.role as UserRole)) {
+      throw new ForbiddenException('Only admins can manage KPI definitions.');
+    }
+  }
+}
+Write kpi.controller.ts
+71 lines
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, Query, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { KpiService } from './kpi.service';
+import { KpiQueryDto } from './dto/kpi-query.dto';
+import { CreateKpiDefinitionDto } from './dto/create-kpi-definition.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+
+@ApiTags('KPI')
+@ApiBearerAuth()
+@Controller()
+export class KpiController {
+  constructor(private readonly kpiService: KpiService) {}
+
+  // ─── KPI query (per campaign) ─────────────────────────────────────────────────
+
+  @Get('clients/:clientId/campaigns/:campaignId/kpi')
+  @ApiOperation({ summary: 'Get base + derived + custom KPIs for a campaign' })
+  getKpis(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Query() query: KpiQueryDto,
+  ) {
+    return this.kpiService.getKpis(user, clientId, campaignId, query);
+  }
+
+  // ─── Custom KPI definitions (tenant-level) ────────────────────────────────────
+
+  @Post('agencies/me/kpi-definitions')
+  @ApiOperation({ summary: 'Create a custom KPI formula (admin only)' })
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateKpiDefinitionDto,
+  ) {
+    return this.kpiService.createDefinition(user, dto);
+  }
+
+  @Get('agencies/me/kpi-definitions')
+  @ApiOperation({ summary: 'List custom KPI definitions' })
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('platform') platform?: string,
+  ) {
+    return this.kpiService.listDefinitions(user, platform as any);
+  }
+
+  @Patch('agencies/me/kpi-definitions/:defId')
+  @ApiOperation({ summary: 'Update a custom KPI definition (admin only)' })
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('defId') defId: string,
+    @Body() dto: Partial<CreateKpiDefinitionDto>,
+  ) {
+    return this.kpiService.updateDefinition(user, defId, dto);
+  }
+
+  @Delete('agencies/me/kpi-definitions/:defId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a custom KPI definition (admin only)' })
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('defId') defId: string,
+  ) {
+    return this.kpiService.removeDefinition(user, defId);
+  }
+}
+Write kpi.module.ts
+13 lines
+import { Module } from '@nestjs/common';
+import { KpiController } from './kpi.controller';
+import { KpiService } from './kpi.service';
+import { MetricsModule } from '../metrics/metrics.module';
+import { CacheModule } from '../../common/cache/cache.module';
+
+@Module({
+  imports: [MetricsModule, CacheModule],
+  controllers: [KpiController],
+  providers: [KpiService],
+})
+export class KpiModule {}
+Now 8.7 Export with FIX #6 (streaming CSV row-by-row) and FIX (filename sanitization):
+
+Write export-query.dto.ts
+44 lines
+import {
+  IsDateString, IsEnum, IsOptional, IsString, IsArray,
+} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IntegrationPlatform } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import { MetricGranularity } from '../../metrics/dto/query-metrics.dto';
+
+export enum ExportFormat {
+  CSV = 'csv',
+  XLSX = 'xlsx',
+}
+
+export class ExportQueryDto {
+  @ApiProperty({ enum: IntegrationPlatform })
+  @IsEnum(IntegrationPlatform)
+  platform: IntegrationPlatform;
+
+  @ApiProperty({ example: '2026-04-01' })
+  @IsDateString()
+  from: string;
+
+  @ApiProperty({ example: '2026-04-30' })
+  @IsDateString()
+  to: string;
+
+  @ApiProperty({ enum: ExportFormat, default: ExportFormat.CSV })
+  @IsOptional()
+  @IsEnum(ExportFormat)
+  format?: ExportFormat;
+
+  @ApiProperty({ enum: MetricGranularity, default: MetricGranularity.DAY })
+  @IsOptional()
+  @IsEnum(MetricGranularity)
+  granularity?: MetricGranularity;
+
+  @ApiProperty({ type: [String], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => (typeof value === 'string' ? value.split(',') : value))
+  metricKeys?: string[];
+}
+Write csv-formatter.ts
+47 lines
+import { Response } from 'express';
+import { MetricPeriodRow } from '../../metrics/dto/query-metrics.dto';
+
+/** FIX #6: Stream CSV row-by-row — never holds all data in memory as a string. */
+export function streamCsv(
+  res: Response,
+  filename: string,
+  rows: MetricPeriodRow[],
+  metricKeys: string[],
+): void {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(filename)}.csv"`);
+  res.setHeader('Transfer-Encoding', 'chunked');
+
+  // Header row
+  res.write(['Date', ...metricKeys].join(',') + '\r\n');
+
+  // Data rows — written one at a time
+  for (const row of rows) {
+    const values = metricKeys.map(k => {
+      const v = row.metrics[k] ?? 0;
+      return typeof v === 'number' ? v.toString() : `"${String(v).replace(/"/g, '""')}"`;
+    });
+    res.write([row.period, ...values].join(',') + '\r\n');
+  }
+
+  res.end();
+}
+
+export function buildCsvSummaryBuffer(
+  metrics: Record<string, number>,
+  filename: string,
+): { buffer: string; filename: string } {
+  const keys = Object.keys(metrics);
+  const header = keys.join(',');
+  const values = keys.map(k => metrics[k] ?? 0).join(',');
+  return { buffer: header + '\r\n' + values + '\r\n', filename: sanitizeFilename(filename) };
+}
+
+// FIX (filename safety): strip spaces and special chars
+export function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9\-_.]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 200);
+}
+Write xlsx-formatter.ts
+61 lines
+import * as ExcelJS from 'exceljs';
+import { MetricPeriodRow } from '../../metrics/dto/query-metrics.dto';
+import { sanitizeFilename } from './csv-formatter';
+
+const HEADER_COLOR = 'FF3B82F6'; // default agency blue
+
+export async function buildXlsxBuffer(
+  rows: MetricPeriodRow[],
+  summaryMetrics: Record<string, number>,
+  metricKeys: string[],
+  sheetTitle: string,
+  primaryColor?: string,
+): Promise<{ buffer: Buffer; filename: string }> {
+  const workbook = new ExcelJS.Workbook();
+  const headerFill = primaryColor
+    ? primaryColor.replace('#', 'FF')
+    : HEADER_COLOR;
+
+  // ─── Sheet 1: Time-series data ──────────────────────────────────────────────
+  const dataSheet = workbook.addWorksheet('Data');
+  const dataHeaders = ['Date', ...metricKeys];
+  dataSheet.addRow(dataHeaders);
+
+  // Style header row
+  const headerRow = dataSheet.getRow(1);
+  headerRow.eachCell(cell => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerFill } };
+  });
+  headerRow.commit();
+
+  // FIX #6: add rows one at a time (streaming-style in memory)
+  for (const row of rows) {
+    const values = metricKeys.map(k => row.metrics[k] ?? 0);
+    dataSheet.addRow([row.period, ...values]);
+  }
+
+  // Auto-fit column widths
+  dataSheet.columns.forEach((col, i) => {
+    col.width = i === 0 ? 14 : Math.max(12, (metricKeys[i - 1]?.length ?? 0) + 4);
+  });
+
+  // ─── Sheet 2: Summary ────────────────────────────────────────────────────────
+  const summarySheet = workbook.addWorksheet('Summary');
+  summarySheet.addRow(['Metric', 'Total']);
+  const sumHeader = summarySheet.getRow(1);
+  sumHeader.eachCell(cell => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerFill } };
+  });
+  sumHeader.commit();
+
+  for (const key of metricKeys) {
+    summarySheet.addRow([key, summaryMetrics[key] ?? 0]);
+  }
+  summarySheet.columns = [{ width: 20 }, { width: 15 }];
+
+  const buffer = await workbook.xlsx.writeBuffer() as Buffer;
+  return { buffer, filename: sanitizeFilename(sheetTitle) };
+}
+Write export.service.ts
+137 lines
+import {
+  Injectable, NotFoundException, BadRequestException,
+} from '@nestjs/common';
+import { Response } from 'express';
+import { UserRole } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { MetricsService } from '../metrics/metrics.service';
+import { MetricGranularity, MetricAggregate } from '../metrics/dto/query-metrics.dto';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { ExportQueryDto, ExportFormat } from './dto/export-query.dto';
+import { streamCsv, sanitizeFilename } from './utils/csv-formatter';
+import { buildXlsxBuffer } from './utils/xlsx-formatter';
+
+// FIX #6: hard cap on export range to prevent memory explosion
+const MAX_EXPORT_DAYS = 365;
+
+@Injectable()
+export class ExportService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metrics: MetricsService,
+  ) {}
+
+  async export(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    dto: ExportQueryDto,
+    res: Response,
+  ): Promise<void> {
+    const campaign = await this.assertCampaignAccess(user, clientId, campaignId);
+    this.assertDateRangeCap(dto.from, dto.to);
+
+    const format = dto.format ?? ExportFormat.CSV;
+    const granularity = dto.granularity ?? MetricGranularity.DAY;
+
+    const timeSeries = await this.metrics.getMetrics(
+      user.tenantId, campaignId, dto.platform,
+      dto.from, dto.to, dto.metricKeys, granularity, MetricAggregate.SUM,
+    );
+
+    // Determine metric keys from data if not specified
+    const metricKeys = dto.metricKeys?.length
+      ? dto.metricKeys
+      : timeSeries.length > 0 ? Object.keys(timeSeries[0].metrics) : [];
+
+    const baseFilename = `${campaign.name}_${dto.platform}_${dto.from}_${dto.to}`;
+
+    if (format === ExportFormat.CSV) {
+      // FIX #6: stream row-by-row — no full string in memory
+      streamCsv(res, baseFilename, timeSeries, metricKeys);
+      return;
+    }
+
+    // XLSX: needs summary too
+    const summaryResult = await this.metrics.getMetricSummary(
+      user.tenantId, campaignId, dto.platform,
+      dto.from, dto.to, metricKeys, MetricAggregate.SUM,
+    );
+
+    const { buffer, filename } = await buildXlsxBuffer(
+      timeSeries, summaryResult.metrics, metricKeys, baseFilename,
+    );
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  }
+
+  async exportSummary(
+    user: AuthenticatedUser,
+    clientId: string,
+    campaignId: string,
+    dto: ExportQueryDto,
+    res: Response,
+  ): Promise<void> {
+    const campaign = await this.assertCampaignAccess(user, clientId, campaignId);
+    this.assertDateRangeCap(dto.from, dto.to);
+
+    const format = dto.format ?? ExportFormat.CSV;
+    const summary = await this.metrics.getMetricSummary(
+      user.tenantId, campaignId, dto.platform,
+      dto.from, dto.to, dto.metricKeys, MetricAggregate.SUM,
+    );
+
+    const metricKeys = Object.keys(summary.metrics);
+    const baseFilename = `${campaign.name}_${dto.platform}_summary_${dto.from}_${dto.to}`;
+    const safeFilename = sanitizeFilename(baseFilename);
+
+    if (format === ExportFormat.CSV) {
+      const header = ['Metric', 'Value'].join(',');
+      const rows = metricKeys.map(k => `${k},${summary.metrics[k] ?? 0}`).join('\r\n');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.csv"`);
+      res.end(header + '\r\n' + rows + '\r\n');
+      return;
+    }
+
+    const { buffer, filename } = await buildXlsxBuffer(
+      [], summary.metrics, metricKeys, baseFilename,
+    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  }
+
+  // ─── Private helpers ──────────────────────────────────────────────────────────
+
+  private async assertCampaignAccess(
+    user: AuthenticatedUser, clientId: string, campaignId: string,
+  ) {
+    const isClient = user.role === UserRole.CLIENT_USER;
+    const campaign = await this.prisma.campaign.findFirst({
+      where: {
+        id: campaignId, clientId, tenantId: user.tenantId, deletedAt: null,
+        ...(isClient && {
+          client: { clientUserAssignments: { some: { userId: user.id } } },
+        }),
+      },
+      select: { id: true, name: true },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found.');
+    return campaign;
+  }
+
+  private assertDateRangeCap(from: string, to: string): void {
+    const days = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
+    if (days > MAX_EXPORT_DAYS) {
+      throw new BadRequestException(
+        `Export range cannot exceed ${MAX_EXPORT_DAYS} days. Requested: ${Math.round(days)} days.`,
+      );
+    }
+  }
+}
+Write export.controller.ts
+42 lines
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { Response } from 'express';
+import { ExportService } from './export.service';
+import { ExportQueryDto } from './dto/export-query.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+
+@ApiTags('Export')
+@ApiBearerAuth()
+@Controller('clients/:clientId/campaigns/:campaignId/export')
+export class ExportController {
+  constructor(private readonly exportService: ExportService) {}
+
+  @Get()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Export time-series metric data as CSV or XLSX' })
+  exportTimeSeries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Query() query: ExportQueryDto,
+    @Res() res: Response,
+  ) {
+    return this.exportService.export(user, clientId, campaignId, query, res);
+  }
+
+  @Get('summary')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Export KPI summary totals as CSV or XLSX' })
+  exportSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('clientId') clientId: string,
+    @Param('campaignId') campaignId: string,
+    @Query() query: ExportQueryDto,
+    @Res() res: Response,
+  ) {
+    return this.exportService.exportSummary(user, clientId, campaignId, query, res);
+  }
+}
+Write export.module.ts
+12 lines
+import { Module } from '@nestjs/common';
+import { ExportController } from './export.controller';
+import { ExportService } from './export.service';
+import { MetricsModule } from '../metrics/metrics.module';
+
+@Module({
+  imports: [MetricsModule],
+  controllers: [ExportController],
+  providers: [ExportService],
+})
+export class ExportModule {}
+Wire everything into app.module.ts:
+
+Edit d:\projects\agency-backend\src\app.module.ts
+Added 4 lines
+Edit d:\projects\agency-backend\src\app.module.ts
+Added 12 lines
+Now compile check:
+
+Bash TypeScript compile check
+IN
+cd d:/projects/agency-backend && npx tsc --noEmit 2>&1 | head -50
+
+OUT
+src/modules/export/utils/xlsx-formatter.ts(58,18): error TS2352: Conversion of type 'Buffer' to type 'Buffer<ArrayBufferLike>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Buffer' is missing the following properties from type 'Buffer<ArrayBufferLike>': subarray, write, toJSON, equals, and 94 more.
+Edit d:\projects\agency-backend\src\modules\export\utils\xlsx-formatter.ts
+Modified
+Let me check the current state of the implementation to understand where we left off and what needs to be done next.
+
+Looking at the summary, the last completed action was fixing the TypeScript compile error in xlsx-formatter.ts and reaching a clean compile with zero errors.
+
+The four features (8.1, 8.8, 8.3, 8.7) are fully implemented. The user hasn't given a new instruction yet, so I should just present a status summary and wait for their next direction.
+
+Actually, re-reading the instructions: "Continue the conversation from where it left off without asking the user any further questions. Resume directly"
+
+Since all four features are now complete with no TypeScript errors, I'll provide a brief status update on the current state of the implementation.
+
+All four features are implemented and compiling cleanly. Here's where things stand:
+
+Phase 8 — Complete (8/12)
+
+Phase	Feature	Status
+8.1	Alerts & Monitoring	Done
+8.2	Goal Tracking	Done
+8.3	KPI Engine	Done
+8.6	Data Health Monitor	Done
+8.7	Data Export	Done
+8.8	ROI Forecasting	Done
+8.9	Scorecard System	Done
+8.10	Campaign Notes	Done
+Remaining Phase 8
+
+8.4 — AI Report Explanation (Claude API)
+8.5 — AI Assistant (conversational)
+8.11 — Template Marketplace
+8.12 — Billing / Stripe
+One housekeeping item: When you next restart the dev server, run npx prisma generate to regenerate the Prisma client for the new models (Goal, CampaignNote, Alert, AlertEvent, CustomMetricDefinition). That will let us remove all the (this.prisma as any).modelName casts throughout the services.
+
+What's next — should we plan 8.4 (AI Report Explanation) or jump straight to 8.12 (Billing)?

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash /d/tmp/run_tests_3_1.sh)",
+      "Bash(curl -s -w '\\\\nHTTP_STATUS:%{http_code}' -X PATCH -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNjVmOTMwYS04YTY4LTQ0ZGUtYjUxOS0zNWQxM2UwNjJiZTgiLCJ0ZW5hbnRJZCI6ImM0NmVjMzViLTVmZDUtNGUxMS05MGY5LWYzMTM2ZWU1MWQ4NCIsInJvbGUiOiJBR0VOQ1lfT1dORVIiLCJlbWFpbCI6Im93bmVyQGRlbW8tYWdlbmN5LmNvbSIsImlhdCI6MTc3Njg2MjAwMywiZXhwIjoxNzc2ODYyOTAzfQ.qYWaho0IlP190uZDBPxLRd5L_Y7yQV8nn3Iq7EppDQo' -H 'Content-Type: application/json' -d '{\"config\": {\"title\": \"Total Sessions Updated\"}}' http://localhost:3001/api/v1/campaigns/0cf27b77-3774-4c23-8302-93988b800bcd/dashboards/69462dc7-6453-4904-9521-4215fb914530/widgets/f7590c2d-495b-4fea-9dd8-1c5df822443e)"
+    ]
+  }
+}
