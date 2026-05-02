@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getApiClient } from "@/src/lib/api";
-import type { DashboardWidget, WidgetConfig, WidgetPosition, IntegrationPlatform, WidgetType } from "@/src/types/dashboard";
+import { getApiClient } from "@/lib/api";
+import type { DashboardWidget, WidgetConfig, WidgetPosition, IntegrationPlatform, WidgetType } from "@/types/dashboard";
 
 interface UseDashboardEditProps {
   campaignId: string;

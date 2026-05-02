@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { getApiClient } from "@/src/lib/api";
-import type { IntegrationPlatform } from "@/src/types/dashboard";
+import { getApiClient } from "@/lib/api";
+import type { IntegrationPlatform } from "@/types/dashboard";
 
 interface MetricDefinition {
-  key: string;
+  metricKey: string;
   label: string;
   unit: string;
   platform: string;

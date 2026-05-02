@@ -2,7 +2,8 @@
 import RGL from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import type { DashboardWidget } from "@/src/types/dashboard";
+import { useRef, useState, useEffect } from "react";
+import type { DashboardWidget } from "@/types/dashboard";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactGridLayout = RGL as any;
@@ -35,6 +36,20 @@ export function DashboardGrid({
   onLayoutChange,
   renderWidget,
 }: DashboardGridProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState(1200);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setGridWidth(width);
+    });
+    observer.observe(containerRef.current);
+    setGridWidth(containerRef.current.offsetWidth);
+    return () => observer.disconnect();
+  }, []);
+
   const layout = widgets.map((w) => ({
     i: w.id,
     x: w.position.x,
@@ -58,11 +73,12 @@ export function DashboardGrid({
   };
 
   return (
+    <div ref={containerRef} className="w-full">
     <ReactGridLayout
       layout={layout}
       cols={COL_COUNT}
       rowHeight={ROW_HEIGHT}
-      width={1200}
+      width={gridWidth}
       isDraggable={editMode}
       isResizable={editMode}
       onDragStop={handleDragStop}
@@ -106,5 +122,6 @@ export function DashboardGrid({
         </div>
       ))}
     </ReactGridLayout>
+    </div>
   );
 }

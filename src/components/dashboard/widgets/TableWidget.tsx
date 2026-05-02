@@ -1,4 +1,4 @@
-import { formatValue } from "@/src/lib/formatters";
+import { formatValue } from "@/lib/formatters";
 
 interface TableColumn {
   key: string;

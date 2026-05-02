@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMetricDefinitions } from "@/src/hooks/useMetricDefinitions";
-import type { WidgetType, IntegrationPlatform, WidgetConfig } from "@/src/types/dashboard";
+import { useMetricDefinitions } from "@/hooks/useMetricDefinitions";
+import type { WidgetType, IntegrationPlatform, WidgetConfig } from "@/types/dashboard";
 
 const WIDGET_TYPES: { value: WidgetType; label: string; description: string }[] = [
   { value: "KPI", label: "KPI Card", description: "Single metric summary" },
@@ -17,7 +17,10 @@ const PLATFORMS: { value: IntegrationPlatform; label: string }[] = [
   { value: "GOOGLE_ADS", label: "Google Ads" },
   { value: "META_ADS", label: "Meta Ads" },
   { value: "GOOGLE_SEARCH_CONSOLE", label: "Search Console" },
+  { value: "YOUTUBE_ANALYTICS", label: "YouTube Analytics" },
   { value: "LINKEDIN_ADS", label: "LinkedIn Ads" },
+  { value: "TIKTOK_ADS", label: "TikTok Ads" },
+  { value: "AMAZON_ADS", label: "Amazon Ads" },
 ];
 
 interface AddWidgetModalProps {
@@ -79,7 +82,7 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">Add Widget</h2>
@@ -88,7 +91,7 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Widget Type */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -183,10 +186,11 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
               ) : (
                 <div className="space-y-1 max-h-44 overflow-y-auto border border-border rounded-md p-2">
                   {metrics.map((m) => {
-                    const selected = metricKeys.includes(m.key);
+                    const selected = metricKeys.includes(m.metricKey);
                     return (
-                      <label
-                        key={m.key}
+                      <div
+                        key={m.metricKey}
+                        onClick={(e) => { e.stopPropagation(); toggleMetric(m.metricKey); }}
                         className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors text-sm ${
                           selected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
                         }`}
@@ -194,11 +198,11 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
                         <input
                           type="checkbox"
                           checked={selected}
-                          onChange={() => toggleMetric(m.key)}
-                          className="accent-primary"
+                          onChange={() => {}}
+                          className="accent-primary pointer-events-none"
                         />
                         <span>{m.label}</span>
-                      </label>
+                      </div>
                     );
                   })}
                 </div>

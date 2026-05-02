@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getApiClient } from "@/src/lib/api";
+import { getApiClient } from "@/lib/api";
 
 interface WidgetDataResult {
   widgetId: string;

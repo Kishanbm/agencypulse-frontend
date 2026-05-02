@@ -6,8 +6,8 @@ import { PieChartWidget } from "./PieChartWidget";
 import { WidgetSkeleton } from "./WidgetSkeleton";
 import { WidgetError } from "./WidgetError";
 import { WidgetEmptyState } from "./WidgetEmptyState";
-import { formatValue } from "@/src/lib/formatters";
-import type { DashboardWidget } from "@/src/types/dashboard";
+import { formatValue } from "@/lib/formatters";
+import type { DashboardWidget } from "@/types/dashboard";
 
 interface WidgetData {
   widgetId: string;
@@ -42,8 +42,9 @@ export function WidgetRenderer({
       const kpiData = widgetData.data as Record<string, unknown>;
       const current = (kpiData.current as Record<string, number>) || {};
       const previous = (kpiData.previous as Record<string, number>) || {};
-      const firstMetric = Object.keys(current)[0];
-      const currentValue = firstMetric ? current[firstMetric] : 0;
+      const firstMetric = Object.keys(current).find((k) => typeof current[k] === "number");
+      if (!firstMetric) return <WidgetEmptyState message="No data for selected range" />;
+      const currentValue = current[firstMetric];
       const previousValue = firstMetric ? previous[firstMetric] : 0;
 
       let trend;

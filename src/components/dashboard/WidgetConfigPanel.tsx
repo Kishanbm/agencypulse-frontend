@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMetricDefinitions } from "@/src/hooks/useMetricDefinitions";
-import type { DashboardWidget, WidgetType, IntegrationPlatform } from "@/src/types/dashboard";
+import { useMetricDefinitions } from "@/hooks/useMetricDefinitions";
+import type { DashboardWidget, WidgetType, IntegrationPlatform } from "@/types/dashboard";
 
 const WIDGET_TYPES: { value: WidgetType; label: string }[] = [
   { value: "KPI", label: "KPI Card" },
@@ -68,7 +68,7 @@ export function WidgetConfigPanel({
   };
 
   return (
-    <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col h-full">
+    <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col max-h-[calc(100vh-8rem)] sticky top-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">Widget Config</h3>
@@ -147,10 +147,11 @@ export function WidgetConfigPanel({
           ) : (
             <div className="space-y-1 max-h-52 overflow-y-auto">
               {metrics.map((m) => {
-                const selected = widget.metricKeys?.includes(m.key);
+                const selected = widget.metricKeys?.includes(m.metricKey);
                 return (
-                  <label
-                    key={m.key}
+                  <div
+                    key={m.metricKey}
+                    onClick={() => handleMetricToggle(m.metricKey)}
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer transition-colors text-sm ${
                       selected
                         ? "bg-primary/10 text-primary"
@@ -160,11 +161,11 @@ export function WidgetConfigPanel({
                     <input
                       type="checkbox"
                       checked={!!selected}
-                      onChange={() => handleMetricToggle(m.key)}
-                      className="accent-primary"
+                      onChange={() => {}}
+                      className="accent-primary pointer-events-none"
                     />
                     <span>{m.label}</span>
-                  </label>
+                  </div>
                 );
               })}
             </div>

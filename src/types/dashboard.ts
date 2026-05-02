@@ -1,5 +1,13 @@
 export type WidgetType = 'KPI' | 'LINE_CHART' | 'BAR_CHART' | 'TABLE' | 'PIE_CHART';
-export type IntegrationPlatform = 'GA4' | 'GOOGLE_ADS' | 'META_ADS' | 'GOOGLE_SEARCH_CONSOLE' | 'LINKEDIN_ADS' | 'MAILCHIMP' | 'SHOPIFY';
+export type IntegrationPlatform =
+  | 'GA4'
+  | 'GOOGLE_ADS'
+  | 'META_ADS'
+  | 'GOOGLE_SEARCH_CONSOLE'
+  | 'YOUTUBE_ANALYTICS'
+  | 'LINKEDIN_ADS'
+  | 'TIKTOK_ADS'
+  | 'AMAZON_ADS';
 
 export interface WidgetPosition {
   x: number;
