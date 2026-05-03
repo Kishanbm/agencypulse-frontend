@@ -88,11 +88,11 @@ const INNER_COUNT = 6;
 const OUTER_COUNT = 6;
 
 function computeSlots(viewportSize: number): OrbitSlot[] {
-  // Scale radii to viewport (assume the hub container is `viewportSize` px wide)
-  const innerR = viewportSize * 0.28;
-  const outerR = viewportSize * 0.46;
-  const innerSize = Math.max(48, viewportSize * 0.1);
-  const outerSize = Math.max(56, viewportSize * 0.115);
+  // Push icons farther from the center hub for breathing room
+  const innerR = viewportSize * 0.34;
+  const outerR = viewportSize * 0.48;
+  const innerSize = Math.max(52, viewportSize * 0.105);
+  const outerSize = Math.max(60, viewportSize * 0.12);
 
   const inner: OrbitSlot[] = Array.from({ length: INNER_COUNT }, (_, i) => ({
     angle: (i / INNER_COUNT) * Math.PI * 2 - Math.PI / 2, // start top
@@ -158,7 +158,30 @@ export function LogosStrip() {
     <section id="integrations" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background mesh */}
       <div className="absolute inset-0 dot-bg opacity-30 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] bg-gradient-violet opacity-[0.06] blur-[120px] rounded-full pointer-events-none" />
+
+      {/* Animated central glow */}
+      <motion.div
+        aria-hidden
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[700px] bg-gradient-violet opacity-[0.06] blur-[120px] rounded-full pointer-events-none"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.06, 0.10, 0.06] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      {/* Drifting accent blob */}
+      <motion.div
+        aria-hidden
+        className="absolute top-1/3 left-[10%] size-[280px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(255,122,89,0.10) 0%, transparent 70%)', filter: 'blur(40px)' }}
+        animate={{ x: [0, 40, 0], y: [0, -20, 0] }}
+        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute top-1/2 right-[8%] size-[260px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(16,217,160,0.10) 0%, transparent 70%)', filter: 'blur(40px)' }}
+        animate={{ x: [0, -30, 0], y: [0, 25, 0] }}
+        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+      />
 
       <div className="mx-auto max-w-[1180px] px-4 lg:px-6 relative">
         <FadeIn className="text-center mb-14">
@@ -230,12 +253,12 @@ export function LogosStrip() {
 }
 
 function getViewport(): number {
-  if (typeof window === "undefined") return 600;
+  if (typeof window === "undefined") return 720;
   const w = window.innerWidth;
-  if (w < 480) return Math.min(w - 32, 360);
-  if (w < 768) return 480;
-  if (w < 1024) return 560;
-  return 640;
+  if (w < 480) return Math.min(w - 32, 380);
+  if (w < 768) return 520;
+  if (w < 1024) return 620;
+  return 760;
 }
 
 function CenterHub({ viewport }: { viewport: number }) {
@@ -366,8 +389,8 @@ function LogoTile({
 
 function RingGuides({ viewport }: { viewport: number }) {
   const center = viewport / 2;
-  const innerR = viewport * 0.28;
-  const outerR = viewport * 0.46;
+  const innerR = viewport * 0.34;
+  const outerR = viewport * 0.48;
   return (
     <svg
       width={viewport}

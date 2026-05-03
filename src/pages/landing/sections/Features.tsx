@@ -10,7 +10,7 @@ import {
   FileText,
   Layers,
 } from "lucide-react";
-import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
+import { FadeIn, Stagger, StaggerItem, Spotlight } from "@/components/motion";
 
 const FEATURES = [
   {
@@ -77,8 +77,24 @@ const accentMap = {
 
 export function Features() {
   return (
-    <section id="features" className="py-24 lg:py-32 relative">
-      <div className="mx-auto max-w-[1180px] px-4 lg:px-6">
+    <section id="features" className="py-24 lg:py-32 relative overflow-hidden">
+      {/* Soft drifting gradient orbs */}
+      <motion.div
+        aria-hidden
+        className="absolute -top-20 left-[5%] size-[400px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(91,71,224,0.08) 0%, transparent 70%)', filter: 'blur(60px)' }}
+        animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute bottom-0 right-[5%] size-[350px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(255,122,89,0.07) 0%, transparent 70%)', filter: 'blur(60px)' }}
+        animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+      />
+
+      <div className="mx-auto max-w-[1180px] px-4 lg:px-6 relative">
         <FadeIn className="max-w-2xl mx-auto text-center mb-16">
           <span className="inline-block px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-medium tracking-wide mb-5">
             Everything an agency needs
@@ -100,29 +116,43 @@ export function Features() {
           {FEATURES.map((f) => {
             const Icon = f.icon;
             const a = accentMap[f.accent as keyof typeof accentMap];
+            const glowColor =
+              f.accent === "violet"
+                ? "rgba(91,71,224,0.20)"
+                : f.accent === "coral"
+                ? "rgba(255,122,89,0.20)"
+                : "rgba(16,217,160,0.20)";
             return (
               <StaggerItem key={f.title}>
                 <motion.div
                   whileHover={{ y: -4 }}
-                  transition={{ duration: 0.2 }}
-                  className="group relative h-full p-6 rounded-2xl border border-border/60 bg-white hover:border-foreground/15 hover:shadow-md transition-all overflow-hidden"
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full"
                 >
-                  {/* Hover glow */}
-                  <div
-                    className={`absolute -top-12 -right-12 size-48 rounded-full bg-gradient-to-br ${a.glow} to-transparent opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500`}
-                  />
-
-                  <div
-                    className={`relative size-11 rounded-xl ${a.bg} ${a.text} flex items-center justify-center mb-5 group-hover:scale-105 transition-transform`}
+                  <Spotlight
+                    color={glowColor}
+                    size={400}
+                    className="group h-full rounded-2xl border border-border/60 bg-white hover:border-foreground/15 hover:shadow-xl hover:shadow-black/5 transition-all"
                   >
-                    <Icon className="size-5" strokeWidth={2} />
-                  </div>
-                  <h3 className="font-heading font-semibold text-base tracking-tight mb-2">
-                    {f.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {f.desc}
-                  </p>
+                    <div className="relative p-6 h-full">
+                      {/* Static accent glow in top-right */}
+                      <div
+                        className={`absolute -top-12 -right-12 size-48 rounded-full bg-gradient-to-br ${a.glow} to-transparent opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500 pointer-events-none`}
+                      />
+
+                      <div
+                        className={`relative size-11 rounded-xl ${a.bg} ${a.text} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300`}
+                      >
+                        <Icon className="size-5" strokeWidth={2} />
+                      </div>
+                      <h3 className="font-heading font-semibold text-base tracking-tight mb-2">
+                        {f.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {f.desc}
+                      </p>
+                    </div>
+                  </Spotlight>
                 </motion.div>
               </StaggerItem>
             );

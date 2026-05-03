@@ -5,3 +5,7 @@ export { AnimatedNumber } from "./AnimatedNumber";
 export { AuroraBackground } from "./AuroraBackground";
 export { GradientText } from "./GradientText";
 export { Marquee } from "./Marquee";
+export { Spotlight } from "./Spotlight";
+export { BeamDivider } from "./BeamDivider";
+export { ScrollProgress } from "./ScrollProgress";
+export { TiltCard } from "./TiltCard";

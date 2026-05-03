@@ -44,5 +44,12 @@ export interface CreateConversationResponse {
   reply: {
     content: string;
     tokenCount: number;
+    toolCalls?: string[];
   };
+}
+
+export interface SendMessageResponse {
+  content: string;
+  tokenCount: number;
+  toolCalls?: string[];
 }

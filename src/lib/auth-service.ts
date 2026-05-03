@@ -8,11 +8,22 @@ export interface LoginInput {
 }
 
 export interface RegisterInput {
-  agencyName: string;
+  // Step 1
   firstName: string;
   lastName: string;
   email: string;
   password: string;
+  phone?: string;
+  // Step 2
+  agencyName: string;
+  website?: string;
+  size?: string;
+  country?: string;
+  timezone?: string;
+  // Step 3 (optional)
+  interests?: string[];
+  clientCountEstimate?: string;
+  referralSource?: string;
 }
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
@@ -38,6 +49,33 @@ export async function logout(): Promise<void> {
   } finally {
     useAuthStore.getState().logout();
   }
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const api = getApiClient();
+  const { data } = await api.post<{ message: string }>("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<{ message: string }> {
+  const api = getApiClient();
+  const { data } = await api.post<{ message: string }>("/auth/reset-password", { token, password });
+  return data;
+}
+
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  const api = getApiClient();
+  const { data } = await api.post<{ message: string }>("/auth/verify-email", { token });
+  return data;
+}
+
+export async function resendVerification(): Promise<{ message: string }> {
+  const api = getApiClient();
+  const { data } = await api.post<{ message: string }>("/auth/resend-verification", {});
+  return data;
 }
 
 /**

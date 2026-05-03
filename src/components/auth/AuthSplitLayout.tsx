@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { AnimatedNumber, AuroraBackground } from "@/components/motion";
+import { PublicAiWidget } from "@/components/ai/PublicAiWidget";
 
 interface AuthSplitLayoutProps {
   children: ReactNode;
@@ -166,6 +167,9 @@ export function AuthSplitLayout({
           </div>
         </footer>
       </div>
+
+      {/* Public marketing assistant — floating bubble bottom-right */}
+      <PublicAiWidget />
     </div>
   );
 }

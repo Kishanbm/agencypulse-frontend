@@ -230,6 +230,29 @@
     color: transparent;
 }
 
+/* Animated flowing gradient — slow shimmer across the gradient stops */
+@utility text-gradient-violet-flow {
+    background: linear-gradient(
+        110deg,
+        #5B47E0 0%,
+        #8B6FF5 25%,
+        #FF7A59 50%,
+        #8B6FF5 75%,
+        #5B47E0 100%
+    );
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: gradientFlow 6s ease-in-out infinite;
+}
+
+@keyframes gradientFlow {
+    0%, 100% { background-position: 0% center; }
+    50% { background-position: 100% center; }
+}
+
 @utility bg-gradient-violet {
     background-image: linear-gradient(135deg, #5B47E0 0%, #8B6FF5 50%, #FF7A59 100%);
 }

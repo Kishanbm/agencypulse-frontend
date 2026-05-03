@@ -8,6 +8,9 @@ import { AgencyAppLayout } from "@/components/layout/AgencyAppLayout";
 import { ClientPortalLayout } from "@/components/layout/ClientPortalLayout";
 import { StubPage } from "@/components/common/StubPage";
 import { AcceptInvitePage } from "@/pages/auth/AcceptInvitePage";
+import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
+import VerifyEmailPage from "@/pages/auth/VerifyEmailPage";
 import { SharedReportPage } from "@/pages/public/SharedReportPage";
 import { RootRedirect } from "@/pages/RootRedirect";
 import ClientsPage from "@/pages/clients/ClientsPage";
@@ -51,6 +54,9 @@ export default function App() {
           {/* ─── Public ─── */}
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegisterForm />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/r/:token" element={<SharedReportPage />} />
 

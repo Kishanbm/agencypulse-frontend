@@ -13,6 +13,8 @@ import { useHasRole, useRole } from "@/hooks/useRole";
 import { hasRole } from "@/lib/rbac";
 import { useBranding } from "@/contexts/BrandingContext";
 import { logout as doLogout } from "@/lib/auth-service";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
+import { GlobalAiWidget } from "@/components/ai/GlobalAiWidget";
 import type { Role } from "@/types/auth";
 
 type NavItem = {
@@ -402,11 +404,17 @@ export function AgencyAppLayout() {
           </div>
         </header>
 
+        {/* Email verification banner (above page content) */}
+        <EmailVerificationBanner />
+
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>
+
+      {/* Global AI assistant — floating bubble bottom-right */}
+      <GlobalAiWidget />
     </div>
   );
 }

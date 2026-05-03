@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { FadeIn } from "@/components/motion";
+import { FadeIn, Spotlight } from "@/components/motion";
 import { Globe, Lock, Sparkles, ArrowUp, Activity, Users } from "lucide-react";
 
 /**
@@ -9,6 +9,22 @@ export function Bento() {
   return (
     <section className="py-24 lg:py-32 bg-secondary/40 relative overflow-hidden">
       <div className="absolute inset-0 dot-bg opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
+
+      {/* Drifting background orbs */}
+      <motion.div
+        aria-hidden
+        className="absolute top-1/4 left-[8%] size-[320px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(91,71,224,0.10) 0%, transparent 70%)', filter: 'blur(50px)' }}
+        animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
+        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute bottom-1/4 right-[8%] size-[300px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(16,217,160,0.10) 0%, transparent 70%)', filter: 'blur(50px)' }}
+        animate={{ x: [0, -40, 0], y: [0, -30, 0], scale: [1, 1.1, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
+      />
 
       <div className="mx-auto max-w-[1180px] px-4 lg:px-6 relative">
         <FadeIn className="max-w-2xl mx-auto text-center mb-14">
@@ -80,7 +96,11 @@ export function Bento() {
           </BentoCard>
 
           {/* AI */}
-          <BentoCard className="col-span-12 md:col-span-6 lg:col-span-5 min-h-[170px] bg-gradient-to-br from-violet/[0.04] via-white to-coral/[0.04]">
+          <BentoCard
+            className="col-span-12 md:col-span-6 lg:col-span-5 min-h-[170px]"
+            bgClass="bg-gradient-to-br from-violet/[0.04] via-white to-coral/[0.04]"
+            spotlightColor="rgba(255,122,89,0.20)"
+          >
             <Pill icon={<Sparkles className="size-3.5" />} label="AI insights" />
             <h3 className="font-heading text-xl font-semibold tracking-tight mt-3">
               Insight that explains itself
@@ -120,7 +140,12 @@ export function Bento() {
           </BentoCard>
 
           {/* Performance */}
-          <BentoCard className="col-span-12 lg:col-span-4 min-h-[200px] bg-foreground text-background">
+          <BentoCard
+            className="col-span-12 lg:col-span-4 min-h-[200px]"
+            bgClass="bg-foreground text-background"
+            dark
+            spotlightColor="rgba(91,71,224,0.32)"
+          >
             <Pill
               icon={<ArrowUp className="size-3.5" />}
               label="Performance"
@@ -146,19 +171,34 @@ export function Bento() {
 function BentoCard({
   className = "",
   children,
+  spotlightColor = "rgba(91,71,224,0.18)",
+  dark = false,
+  bgClass = "bg-white",
 }: {
   className?: string;
   children: React.ReactNode;
+  spotlightColor?: string;
+  dark?: boolean;
+  bgClass?: string;
 }) {
+  const borderClass = dark
+    ? "border-white/10 hover:border-white/20"
+    : "border-border/60 hover:border-foreground/15";
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`relative rounded-2xl border border-border/60 bg-white p-6 lg:p-7 hover:border-foreground/15 hover:shadow-md transition-all ${className}`}
+      className={className}
     >
-      {children}
+      <Spotlight
+        color={spotlightColor}
+        size={420}
+        className={`relative h-full rounded-2xl border ${borderClass} ${bgClass} hover:shadow-lg transition-all`}
+      >
+        <div className="relative p-6 lg:p-7 h-full">{children}</div>
+      </Spotlight>
     </motion.div>
   );
 }

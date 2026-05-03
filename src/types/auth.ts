@@ -24,6 +24,8 @@ export interface AuthUser {
   lastName: string;
   avatarUrl: string | null;
   role: Role;
+  /** ISO timestamp when email was verified, or null if unverified. */
+  emailVerifiedAt: string | null;
   /** Populated from login/register response; not returned by /auth/me. */
   agency?: Agency;
 }

@@ -9,10 +9,13 @@ import { Pricing } from "./sections/Pricing";
 import { FAQ } from "./sections/FAQ";
 import { CTA } from "./sections/CTA";
 import { Footer } from "./sections/Footer";
+import { PublicAiWidget } from "@/components/ai/PublicAiWidget";
+import { ScrollProgress } from "@/components/motion";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background overflow-x-clip">
+    <div className="min-h-screen bg-background overflow-x-clip relative">
+      <ScrollProgress />
       <LandingNav />
       <main>
         <Hero />
@@ -26,6 +29,7 @@ export default function LandingPage() {
         <CTA />
       </main>
       <Footer />
+      <PublicAiWidget />
     </div>
   );
 }

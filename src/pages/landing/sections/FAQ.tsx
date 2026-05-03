@@ -33,8 +33,17 @@ const FAQS = [
 
 export function FAQ() {
   return (
-    <section id="faq" className="py-24 lg:py-32 relative">
-      <div className="mx-auto max-w-[1180px] px-4 lg:px-6">
+    <section id="faq" className="py-24 lg:py-32 relative overflow-hidden">
+      {/* Soft animated background orb */}
+      <motion.div
+        aria-hidden
+        className="absolute top-1/3 right-[10%] size-[280px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(91,71,224,0.08) 0%, transparent 70%)', filter: 'blur(60px)' }}
+        animate={{ x: [0, -30, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
+        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <div className="mx-auto max-w-[1180px] px-4 lg:px-6 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
           {/* Left column — heading + support card (sticky on desktop) */}
           <div className="lg:col-span-5">
