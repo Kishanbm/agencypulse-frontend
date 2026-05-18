@@ -39,16 +39,21 @@ export function WidgetRenderer({
       if (isLoading) return <WidgetSkeleton type="kpi" />;
       if (!widgetData?.data) return <WidgetEmptyState message="No data for selected range" />;
 
+      // Backend shape: { current: { metrics: { key: value } }, previous?: { metrics: {...} } }
       const kpiData = widgetData.data as Record<string, unknown>;
-      const current = (kpiData.current as Record<string, number>) || {};
-      const previous = (kpiData.previous as Record<string, number>) || {};
+      const rawCurrent = kpiData.current as Record<string, unknown> | undefined;
+      const rawPrevious = kpiData.previous as Record<string, unknown> | undefined;
+      // Unwrap nested metrics object if present
+      const current = (rawCurrent?.metrics ?? rawCurrent ?? {}) as Record<string, number>;
+      const previous = (rawPrevious?.metrics ?? rawPrevious ?? {}) as Record<string, number>;
+
       const firstMetric = Object.keys(current).find((k) => typeof current[k] === "number");
       if (!firstMetric) return <WidgetEmptyState message="No data for selected range" />;
       const currentValue = current[firstMetric];
-      const previousValue = firstMetric ? previous[firstMetric] : 0;
+      const previousValue = previous[firstMetric] ?? 0;
 
       let trend;
-      if (previousValue && previousValue !== 0) {
+      if (previousValue !== 0) {
         const percentChange = ((currentValue - previousValue) / previousValue) * 100;
         trend = { value: percentChange, isPositive: percentChange >= 0 };
       }
@@ -56,7 +61,7 @@ export function WidgetRenderer({
       return (
         <KPIWidget
           label={widget.config?.title || "Metric"}
-          value={formatValue(currentValue, firstMetric || "")}
+          value={formatValue(currentValue, firstMetric)}
           trend={trend}
         />
       );
@@ -67,7 +72,13 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      const chartData = (widgetData.data ?? []) as Array<Record<string, unknown>>;
+      // Backend shape: [{ period: "YYYY-MM-DD", metrics: { key: value } }]
+      // Flatten to: [{ date: "YYYY-MM-DD", key: value }]
+      const raw = widgetData.data as Array<Record<string, unknown>>;
+      const chartData = raw.map((r) => {
+        const metrics = (r.metrics ?? {}) as Record<string, number>;
+        return { date: r.period ?? r.date, ...metrics };
+      });
       const keys = chartData.length > 0 ? Object.keys(chartData[0]).filter((k) => k !== "date") : [];
 
       return (
@@ -87,7 +98,12 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      const chartData = (widgetData.data ?? []) as Array<Record<string, unknown>>;
+      // Flatten backend shape same as LINE_CHART
+      const raw = widgetData.data as Array<Record<string, unknown>>;
+      const chartData = raw.map((r) => {
+        const metrics = (r.metrics ?? {}) as Record<string, number>;
+        return { name: r.period ?? r.date, ...metrics };
+      });
       const keys = chartData.length > 0 ? Object.keys(chartData[0]).filter((k) => k !== "name") : [];
 
       return (
@@ -107,10 +123,15 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      const tableData = (widgetData.data ?? []) as Array<Record<string, unknown>>;
+      // Flatten backend shape: { period, metrics: {...} } → { Date, key: value }
+      const raw = widgetData.data as Array<Record<string, unknown>>;
+      const tableData = raw.map((r) => {
+        const metrics = (r.metrics ?? {}) as Record<string, number>;
+        return { Date: r.period ?? r.date, ...metrics };
+      });
       const columns = Object.keys(tableData[0]).map((key) => ({
         key,
-        label: key.charAt(0).toUpperCase() + key.slice(1),
+        label: key === "Date" ? "Date" : key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       }));
 
       return (
@@ -126,7 +147,13 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      const pieData = widgetData.data as Array<{ name: string; value: number }>;
+      // For pie chart, take the last period's metrics as name/value slices
+      const raw = widgetData.data as Array<Record<string, unknown>>;
+      const lastRow = raw[raw.length - 1];
+      const metrics = (lastRow?.metrics ?? lastRow ?? {}) as Record<string, number>;
+      const pieData = Object.entries(metrics)
+        .filter(([k]) => k !== "period" && k !== "date")
+        .map(([name, value]) => ({ name, value: Number(value) }));
       return <PieChartWidget data={pieData} />;
     }
 

@@ -50,7 +50,7 @@ export function useDashboardData({
     },
     // Only run query when all required params are present and date range is valid
     enabled: !!campaignId && !!dashboardId && from <= to && widgetIds.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
     refetchOnWindowFocus: false,
     retry: 1,
   });

@@ -28,6 +28,57 @@ export interface PlatformEntry {
   requiresShopDomain?: boolean;
 }
 
+// ─── Platform icon map ────────────────────────────────────────────────────────
+// Maps IntegrationPlatform key → @iconify/react icon name.
+// Used by dashboard widgets to show a platform badge on each card.
+const PLATFORM_ICONIFY_MAP: Record<string, string> = {
+  GA4:                       'logos:google-analytics',
+  GOOGLE_ADS:                'logos:google-ads',
+  GOOGLE_SEARCH_CONSOLE:     'logos:google-search-console',
+  GOOGLE_AD_MANAGER:         'logos:google-adsense',
+  GOOGLE_DV360:              'logos:google-marketing-platform',
+  GOOGLE_LOCAL_SERVICES_ADS: 'logos:google-ads',
+  GOOGLE_BUSINESS_PROFILE:   'logos:google-maps',
+  GOOGLE_SHEETS:             'logos:google-drive',
+  GOOGLE_BIGQUERY:           'logos:google-cloud',
+  GOOGLE_PAGESPEED:          'logos:google',
+  META_ADS:                  'logos:meta',
+  INSTAGRAM_ADS:             'logos:instagram',
+  INSTAGRAM_ORGANIC:         'logos:instagram',
+  FACEBOOK_ORGANIC:          'logos:facebook',
+  YOUTUBE_ANALYTICS:         'logos:youtube',
+  TIKTOK_ADS:                'logos:tiktok',
+  TIKTOK_ORGANIC:            'logos:tiktok',
+  PINTEREST_ADS:             'logos:pinterest',
+  PINTEREST_ORGANIC:         'logos:pinterest',
+  X_ADS:                     'logos:twitter',
+  X_ORGANIC:                 'logos:twitter',
+  REDDIT_ADS:                'logos:reddit',
+  LINKEDIN_ADS:              'logos:linkedin',
+  VIMEO:                     'logos:vimeo',
+  SPOTIFY_ADS:               'logos:spotify',
+  ADROLL:                    'logos:adroll',
+  MICROSOFT_ADS:             'logos:microsoft',
+  SNAPCHAT_ADS:              'logos:snapchat',
+  AMAZON_ADS:                'logos:aws',
+  KLAVIYO:                   'logos:klaviyo',
+  MAILCHIMP:                 'logos:mailchimp',
+  HUBSPOT:                   'logos:hubspot',
+  SHOPIFY:                   'logos:shopify',
+  WOOCOMMERCE:               'logos:woocommerce',
+  BIGCOMMERCE:               'logos:bigcommerce',
+  STRIPE:                    'logos:stripe',
+  SEMRUSH:                   'simple-icons:semrush',
+  SE_RANKING:                'simple-icons:seranking',
+  MATOMO:                    'logos:matomo',
+  GOOGLE_TAG_MANAGER:        'logos:google-tag-manager',
+};
+
+/** Returns the @iconify/react icon name for the given platform key, or null if not mapped. */
+export function getPlatformIcon(platformKey: string): string | null {
+  return PLATFORM_ICONIFY_MAP[platformKey] ?? null;
+}
+
 function s(key: string): string {
   return key.toLowerCase().replace(/_/g, '-');
 }
@@ -39,7 +90,7 @@ export const PLATFORM_CATALOG: PlatformEntry[] = [
   { key: 'META_ADS', slug: s('META_ADS'), name: 'Meta Ads', category: 'PPC', altCategories: ['SOCIAL'], authType: 'OAUTH', authLabel: 'Facebook OAuth', description: 'Sync Facebook and Instagram ad campaign data — spend, reach, clicks, and conversions.' },
   { key: 'GOOGLE_SEARCH_CONSOLE', slug: s('GOOGLE_SEARCH_CONSOLE'), name: 'Google Search Console', category: 'SEO', authType: 'OAUTH', authLabel: 'Google OAuth', description: 'Monitor organic search impressions, clicks, average position, and keyword rankings.' },
   { key: 'LINKEDIN_ADS', slug: s('LINKEDIN_ADS'), name: 'LinkedIn Ads', category: 'PPC', authType: 'OAUTH', authLabel: 'LinkedIn OAuth', description: 'Track B2B ad performance — impressions, clicks, spend, and lead gen form submissions.' },
-  { key: 'YOUTUBE_ANALYTICS', slug: s('YOUTUBE_ANALYTICS'), name: 'YouTube', category: 'SOCIAL', authType: 'OAUTH', authLabel: 'Google OAuth', description: 'Monitor video views, watch time, subscribers, and channel engagement metrics.' },
+  { key: 'YOUTUBE_ANALYTICS', slug: 'youtube', name: 'YouTube', category: 'SOCIAL', authType: 'OAUTH', authLabel: 'Google OAuth', description: 'Monitor video views, watch time, subscribers, and channel engagement metrics.' },
   { key: 'TIKTOK_ADS', slug: s('TIKTOK_ADS'), name: 'TikTok Ads', category: 'PPC', altCategories: ['SOCIAL'], authType: 'OAUTH', authLabel: 'TikTok OAuth', description: 'Pull TikTok paid campaign metrics — impressions, clicks, spend, and video views.' },
   { key: 'AMAZON_ADS', slug: s('AMAZON_ADS'), name: 'Amazon Ads', category: 'PPC', authType: 'OAUTH', authLabel: 'Amazon OAuth', description: 'Sync Amazon Advertising campaign data — Sponsored Products, Brands, and Display.' },
   // ─── PPC ─────────────────────────────────────────────────────────────────────
@@ -68,7 +119,7 @@ export const PLATFORM_CATALOG: PlatformEntry[] = [
   { key: 'MOZ', slug: s('MOZ'), name: 'Moz', category: 'SEO', authType: 'API_KEY', authLabel: 'API Key', description: 'Import Domain Authority, page authority, backlinks, and keyword rankings from Moz.' },
   { key: 'SE_RANKING', slug: s('SE_RANKING'), name: 'SE Ranking', category: 'SEO', authType: 'API_KEY', authLabel: 'API Key', description: 'Sync keyword positions, website audits, and backlink monitoring data.' },
   { key: 'MAJESTIC_SEO', slug: s('MAJESTIC_SEO'), name: 'Majestic SEO', category: 'SEO', authType: 'API_KEY', authLabel: 'API Key', description: 'Pull Trust Flow, Citation Flow, and backlink data from Majestic SEO.' },
-  { key: 'BING_WEBMASTER_TOOLS', slug: s('BING_WEBMASTER_TOOLS'), name: 'Bing Webmaster Tools', category: 'SEO', authType: 'OAUTH', authLabel: 'Microsoft OAuth', description: 'Monitor Bing organic search impressions, clicks, pages crawled, and index status.' },
+  { key: 'BING_WEBMASTER_TOOLS', slug: s('BING_WEBMASTER_TOOLS'), name: 'Bing Webmaster Tools', category: 'SEO', authType: 'BOTH', authLabel: 'API Key or OAuth', description: 'Monitor Bing organic search impressions, clicks, pages crawled, and index status.' },
   { key: 'GOOGLE_BUSINESS_PROFILE', slug: s('GOOGLE_BUSINESS_PROFILE'), name: 'Google Business Profile', category: 'LOCAL', altCategories: ['SEO'], authType: 'OAUTH', authLabel: 'Google OAuth', description: 'Track Google Business Profile views, searches, direction requests, and calls.' },
   { key: 'GOOGLE_LIGHTHOUSE', slug: s('GOOGLE_LIGHTHOUSE'), name: 'Google Lighthouse', category: 'SEO', authType: 'API_KEY', authLabel: 'No Auth Needed', description: 'Run automated Lighthouse audits for performance, accessibility, SEO, and best practices.' },
   { key: 'GOOGLE_PAGESPEED', slug: s('GOOGLE_PAGESPEED'), name: 'Google PageSpeed', category: 'SEO', authType: 'API_KEY', authLabel: 'API Key', description: 'Pull Core Web Vitals and PageSpeed scores for desktop and mobile.' },

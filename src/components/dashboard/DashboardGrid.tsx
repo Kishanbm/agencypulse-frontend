@@ -3,7 +3,9 @@ import RGL from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useRef, useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
 import type { DashboardWidget } from "@/types/dashboard";
+import { getPlatformIcon } from "@/lib/platform-catalog";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactGridLayout = RGL as any;
@@ -87,40 +89,48 @@ export function DashboardGrid({
       containerPadding={[0, 0]}
       draggableHandle=".widget-drag-handle"
     >
-      {widgets.map((widget) => (
-        <div
-          key={widget.id}
-          className={`bg-card border rounded-lg shadow-sm overflow-hidden transition-all duration-150 ${
-            editMode ? "cursor-pointer" : ""
-          } ${
-            editMode && selectedWidgetId === widget.id
-              ? "ring-2 ring-primary border-primary"
-              : "border-border"
-          } ${editMode ? "hover:ring-1 hover:ring-primary/50" : ""}`}
-          onClick={() => editMode && onWidgetClick?.(widget.id)}
-        >
-          {editMode && (
-            <div className="widget-drag-handle flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border cursor-grab active:cursor-grabbing select-none">
-              <span className="text-xs font-medium text-muted-foreground truncate">
-                {widget.config?.title || widget.widgetType}
-              </span>
-              <div className="flex gap-0.5">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-0.5 h-3 bg-muted-foreground/40 rounded" />
-                ))}
+      {widgets.map((widget) => {
+        const platformIcon = widget.platform ? getPlatformIcon(widget.platform) : null;
+        return (
+          <div
+            key={widget.id}
+            className={`relative bg-card border rounded-lg shadow-sm overflow-hidden transition-all duration-150 ${
+              editMode ? "cursor-pointer" : ""
+            } ${
+              editMode && selectedWidgetId === widget.id
+                ? "ring-2 ring-primary border-primary"
+                : "border-border"
+            } ${editMode ? "hover:ring-1 hover:ring-primary/50" : ""}`}
+            onClick={() => editMode && onWidgetClick?.(widget.id)}
+          >
+            {editMode && (
+              <div className="widget-drag-handle flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border cursor-grab active:cursor-grabbing select-none">
+                <span className="text-xs font-medium text-muted-foreground truncate">
+                  {widget.config?.title || widget.widgetType}
+                </span>
+                <div className="flex gap-0.5">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="w-0.5 h-3 bg-muted-foreground/40 rounded" />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          <div className="p-4">
-            {!editMode && widget.config?.title && (
-              <h4 className="text-sm font-semibold text-foreground mb-3">
-                {widget.config.title}
-              </h4>
             )}
-            {renderWidget(widget)}
+            <div className="p-4">
+              {!editMode && widget.config?.title && widget.widgetType !== "KPI" && (
+                <h4 className="text-sm font-semibold text-foreground mb-3">
+                  {widget.config.title}
+                </h4>
+              )}
+              {renderWidget(widget)}
+            </div>
+            {platformIcon && !editMode && (
+              <div className="absolute top-2 right-2 size-5 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-sm border border-border/40">
+                <Icon icon={platformIcon} className="size-3.5" />
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </ReactGridLayout>
     </div>
   );

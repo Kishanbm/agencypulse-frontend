@@ -107,8 +107,21 @@ export const CREDENTIAL_SCHEMAS: Record<string, CredentialSchema> = {
   SEMRUSH: tierA('API Key', 'Enter your Semrush API key', 'Found in Semrush → Profile → API keys'),
   AHREFS: tierA('API Token', 'Enter your Ahrefs API token', 'Found in Ahrefs → Settings → API'),
   MAJESTIC_SEO: tierA('API Key', 'Enter your Majestic API key', 'Found in Majestic → My Account → Developer API'),
-  SE_RANKING: tierA('API Token', 'Enter your SE Ranking API token', 'Found in SE Ranking → Profile → API access'),
+  SE_RANKING: {
+    fields: [
+      { id: 'apiKey', label: 'API Token', placeholder: 'Enter your SE Ranking API token', type: 'password', required: true, hint: 'Found in SE Ranking → Profile → API access' },
+      { id: 'siteId', label: 'Site ID', placeholder: 'Enter your SE Ranking Site ID', type: 'text', required: true, hint: 'Numeric ID visible in the URL when viewing a project in SE Ranking' },
+    ],
+    buildPayload: (v) => ({ apiKey: v.apiKey, externalAccountId: v.siteId }),
+  },
   BRIGHTLOCAL: tierA('API Key', 'Enter your BrightLocal API key', 'Found in BrightLocal → Account Settings → API Key'),
+  BING_WEBMASTER_TOOLS: {
+    fields: [
+      { id: 'apiKey', label: 'API Key', placeholder: 'Enter your Bing API Key', type: 'password', required: true, hint: 'Found in Bing Webmaster Tools → Settings → API Access → API Key' },
+      { id: 'siteUrl', label: 'Site URL', placeholder: 'https://example.com', type: 'url', required: true, hint: 'The exact URL of your site as registered in Bing (e.g. https://qodet.com/)' },
+    ],
+    buildPayload: (v) => ({ apiKey: v.apiKey, externalAccountId: v.siteUrl }),
+  },
   GOOGLE_PAGESPEED: tierBUrl(
     'PageSpeed API Key',
     'Website URL to Audit',
@@ -131,6 +144,13 @@ export const CREDENTIAL_SCHEMAS: Record<string, CredentialSchema> = {
   GROUNDTRUTH: tierA('API Key', 'Enter your GroundTruth API key'),
   BASIS_PLATFORM: tierA('API Key', 'Enter your Basis Platform API key'),
   YELP_ADS: tierA('API Key', 'Enter your Yelp Ads API key', 'Found in Yelp → Manage Account → API'),
+  UNBOUNCE: {
+    fields: [
+      { id: 'apiKey', label: 'API Key', placeholder: 'Enter your Unbounce API key', type: 'password', required: true, hint: 'Found in Unbounce → Manage Account → API Access' },
+      { id: 'accountId', label: 'Account ID', placeholder: 'e.g. 4983889', type: 'text', required: true, hint: 'Visible in the URL: app.unbounce.com/.../accounts/ACCOUNT_ID/...' },
+    ],
+    buildPayload: (v) => ({ apiKey: v.apiKey, externalAccountId: v.accountId }),
+  },
   // ─── Ecommerce ─────────────────────────────────────────────────────────────
   WOOCOMMERCE: {
     fields: [
@@ -143,7 +163,16 @@ export const CREDENTIAL_SCHEMAS: Record<string, CredentialSchema> = {
       externalAccountId: JSON.stringify({ siteUrl: v.storeUrl, consumerSecret: v.consumerSecret }),
     }),
   },
-  BIGCOMMERCE: tierA('API Token (V2/V3)', 'Enter your BigCommerce API token', 'Generated in BigCommerce → Advanced Settings → API Accounts'),
+  BIGCOMMERCE: {
+    fields: [
+      { id: 'storeHash', label: 'Store Hash', placeholder: 'Enter your store hash', type: 'text', required: true, hint: 'The alphanumeric hash from your API URL (e.g. stores/HASH/v3)' },
+      { id: 'apiKey', label: 'API Token (V2/V3)', placeholder: 'Enter your BigCommerce API token', type: 'password', required: true, hint: 'Generated in BigCommerce → Advanced Settings → API Accounts' },
+    ],
+    buildPayload: (v) => ({
+      apiKey: v.apiKey,
+      externalAccountId: JSON.stringify({ storeHash: v.storeHash }),
+    }),
+  },
   STRIPE_ECOMMERCE: tierA('Secret Key', 'sk_live_...', 'Found in Stripe Dashboard → Developers → API Keys → Secret key'),
   // ─── Analytics & CRM ───────────────────────────────────────────────────────
   MATOMO: {

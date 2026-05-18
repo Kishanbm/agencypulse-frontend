@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMetricDefinitions } from "@/hooks/useMetricDefinitions";
+import { PLATFORM_CATALOG } from "@/lib/platform-catalog";
 import type { WidgetType, IntegrationPlatform, WidgetConfig } from "@/types/dashboard";
 
 const WIDGET_TYPES: { value: WidgetType; label: string; description: string }[] = [
@@ -10,17 +11,6 @@ const WIDGET_TYPES: { value: WidgetType; label: string; description: string }[] 
   { value: "BAR_CHART", label: "Bar Chart", description: "Compare categories" },
   { value: "TABLE", label: "Table", description: "Detailed data rows" },
   { value: "PIE_CHART", label: "Pie Chart", description: "Distribution breakdown" },
-];
-
-const PLATFORMS: { value: IntegrationPlatform; label: string }[] = [
-  { value: "GA4", label: "Google Analytics 4" },
-  { value: "GOOGLE_ADS", label: "Google Ads" },
-  { value: "META_ADS", label: "Meta Ads" },
-  { value: "GOOGLE_SEARCH_CONSOLE", label: "Search Console" },
-  { value: "YOUTUBE_ANALYTICS", label: "YouTube Analytics" },
-  { value: "LINKEDIN_ADS", label: "LinkedIn Ads" },
-  { value: "TIKTOK_ADS", label: "TikTok Ads" },
-  { value: "AMAZON_ADS", label: "Amazon Ads" },
 ];
 
 interface AddWidgetModalProps {
@@ -135,30 +125,24 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
               Platform
             </label>
             <div className="space-y-1.5">
-              {PLATFORMS.map((p) => {
-                const isConnected = connectedPlatforms.includes(p.value);
-                const isSelected = platform === p.value;
+              {connectedPlatforms.map((platformKey) => {
+                const entry = PLATFORM_CATALOG.find((c) => c.key === platformKey);
+                const label = entry?.name ?? platformKey;
+                const isSelected = platform === platformKey;
                 return (
                   <button
-                    key={p.value}
+                    key={platformKey}
                     type="button"
-                    disabled={!isConnected}
-                    onClick={() => isConnected && handlePlatformChange(p.value)}
+                    onClick={() => handlePlatformChange(platformKey as IntegrationPlatform)}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-md border text-sm transition-colors ${
                       isSelected
                         ? "border-primary bg-primary/10 text-primary"
-                        : isConnected
-                        ? "border-border hover:border-primary/50 text-foreground"
-                        : "border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50"
+                        : "border-border hover:border-primary/50 text-foreground"
                     }`}
                   >
-                    <span>{p.label}</span>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-                      isConnected
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-muted text-muted-foreground"
-                    }`}>
-                      {isConnected ? "Connected" : "Not connected"}
+                    <span>{label}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                      Connected
                     </span>
                   </button>
                 );

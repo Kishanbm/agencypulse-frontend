@@ -207,6 +207,9 @@ export default function IntegrationsPage() {
   const [disconnectTarget, setDisconnectTarget] = useState<{ platformKey: string; name: string } | null>(null);
   const [apiKeyTarget, setApiKeyTarget] = useState<PlatformEntry | null>(null);
   const [shopDomainTarget, setShopDomainTarget] = useState<PlatformEntry | null>(null);
+  const [ga4PropertyPicker, setGa4PropertyPicker] = useState(false);
+  const [gscSitePicker, setGscSitePicker] = useState(false);
+  const [youtubeChannelPicker, setYoutubeChannelPicker] = useState(false);
   const [shopDomainInput, setShopDomainInput] = useState("");
 
   const queryKey = ["integrations", campaignId];
@@ -222,12 +225,20 @@ export default function IntegrationsPage() {
   useEffect(() => {
     const connected = searchParams.get("connected");
     if (!connected) return;
-    const entry = PLATFORM_CATALOG.find(
-      (p) => p.slug === connected || p.key.toLowerCase() === connected.toLowerCase(),
-    );
-    toast.success(`${entry?.name ?? connected} connected successfully`);
-    void queryClient.invalidateQueries({ queryKey });
     setSearchParams({}, { replace: true });
+    void queryClient.invalidateQueries({ queryKey });
+    if (connected.toLowerCase() === "ga4") {
+      setGa4PropertyPicker(true);
+    } else if (connected.toLowerCase() === "google-search-console") {
+      setGscSitePicker(true);
+    } else if (connected.toLowerCase() === "youtube") {
+      setYoutubeChannelPicker(true);
+    } else {
+      const entry = PLATFORM_CATALOG.find(
+        (p) => p.slug === connected || p.key.toLowerCase() === connected.toLowerCase(),
+      );
+      toast.success(`${entry?.name ?? connected} connected successfully`);
+    }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const connectOAuthMutation = useMutation({
@@ -267,6 +278,17 @@ export default function IntegrationsPage() {
       toast.error("Failed to disconnect — please try again");
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const syncNowMutation = useMutation({
+    mutationFn: (platformKey: string) =>
+      api.post(`/sync/trigger`, { campaignId, platform: platformKey }),
+    onSuccess: () => {
+      toast.success("Sync started — data will update in a few seconds");
+      void queryClient.invalidateQueries({ queryKey });
+      setTimeout(() => void queryClient.invalidateQueries({ queryKey }), 8000);
+    },
+    onError: () => toast.error("Could not start sync — try again"),
   });
 
   function connectionFor(platformKey: string) {
@@ -602,24 +624,39 @@ export default function IntegrationsPage() {
                           {isError ? "Reconnect" : "Connect"}
                         </button>
                       ) : (
-                        <button
-                          onClick={() => setDisconnectTarget({ platformKey: platform.key, name: platform.name })}
-                          className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-medium transition-all"
-                          style={{ color: 'var(--muted-foreground)', border: '1px solid #ECECE6' }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(244,63,94,0.35)';
-                            e.currentTarget.style.color = '#f43f5e';
-                            e.currentTarget.style.background = 'rgba(244,63,94,0.04)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = '#ECECE6';
-                            e.currentTarget.style.color = 'var(--muted-foreground)';
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <Unplug className="size-3" />
-                          Disconnect
-                        </button>
+                        <div className="flex gap-1.5 w-full">
+                          <button
+                            onClick={() => syncNowMutation.mutate(platform.key)}
+                            disabled={syncNowMutation.isPending && syncNowMutation.variables === platform.key}
+                            className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                            style={{ background: 'rgba(91,71,224,0.07)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.20)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.14)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.07)'; }}
+                          >
+                            {syncNowMutation.isPending && syncNowMutation.variables === platform.key
+                              ? <Loader2 className="size-3 animate-spin" />
+                              : <RefreshCw className="size-3" />}
+                            Sync
+                          </button>
+                          <button
+                            onClick={() => setDisconnectTarget({ platformKey: platform.key, name: platform.name })}
+                            className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-medium transition-all"
+                            style={{ color: 'var(--muted-foreground)', border: '1px solid #ECECE6' }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(244,63,94,0.35)';
+                              e.currentTarget.style.color = '#f43f5e';
+                              e.currentTarget.style.background = 'rgba(244,63,94,0.04)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#ECECE6';
+                              e.currentTarget.style.color = 'var(--muted-foreground)';
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                          >
+                            <Unplug className="size-3" />
+                            Disconnect
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
@@ -636,6 +673,46 @@ export default function IntegrationsPage() {
             );
           })}
         </motion.div>
+      )}
+
+      {/* GA4 Property Picker */}
+      {ga4PropertyPicker && (
+        <Ga4PropertyPickerModal
+          campaignId={campaignId ?? ""}
+          clientId={clientId ?? ""}
+          onClose={() => setGa4PropertyPicker(false)}
+          onSaved={() => {
+            setGa4PropertyPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("Google Analytics 4 connected successfully");
+          }}
+        />
+      )}
+
+      {/* GSC Site Picker */}
+      {gscSitePicker && (
+        <GscSitePickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setGscSitePicker(false)}
+          onSaved={() => {
+            setGscSitePicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("Google Search Console connected successfully");
+          }}
+        />
+      )}
+
+      {/* YouTube Channel Picker */}
+      {youtubeChannelPicker && (
+        <YoutubeChannelPickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setYoutubeChannelPicker(false)}
+          onSaved={() => {
+            setYoutubeChannelPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("YouTube Analytics connected successfully");
+          }}
+        />
       )}
 
       {/* API Key Modal */}
@@ -815,6 +892,395 @@ export default function IntegrationsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── YouTube Channel Picker Modal ─────────────────────────────────────────────
+
+interface YoutubeChannel {
+  id: string;
+  title: string;
+  subscriberCount: number;
+  viewCount: number;
+}
+
+function YoutubeChannelPickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: channels = [], isLoading, error } = useQuery<YoutubeChannel[]>({
+    queryKey: ["youtube-channels", campaignId],
+    queryFn: () =>
+      api
+        .get<YoutubeChannel[]>("/integrations/youtube/channels", { params: { campaignId } })
+        .then((r) => r.data),
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.post("/integrations/youtube/select-channel", { campaignId, channelId: selected });
+      onSaved();
+    } catch {
+      toast.error("Failed to save YouTube channel — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:youtube" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select YouTube Channel</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose which YouTube channel to sync analytics from.
+          </p>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load channels:{" "}
+              {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (error as Error)?.message ??
+                "Unknown error"}
+            </p>
+          )}
+
+          {!isLoading && channels.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">
+              No YouTube channels found on this Google account.
+            </p>
+          )}
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {channels.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setSelected(ch.id)}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                  selected === ch.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{ch.title}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {ch.subscriberCount.toLocaleString()} subscribers · {ch.viewCount.toLocaleString()} total views
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            Connect Channel
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── GSC Site Picker Modal ────────────────────────────────────────────────────
+
+interface GscSite {
+  siteUrl: string;
+  permissionLevel: string;
+}
+
+function GscSitePickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: sites = [], isLoading, error } = useQuery<GscSite[]>({
+    queryKey: ["gsc-sites", campaignId],
+    queryFn: () =>
+      api
+        .get<GscSite[]>("/integrations/google-search-console/sites", { params: { campaignId } })
+        .then((r) => r.data),
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.post("/integrations/google-search-console/select-site", {
+        campaignId,
+        siteUrl: selected,
+      });
+      onSaved();
+    } catch {
+      toast.error("Failed to save Search Console site — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:google-search-console" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select Search Console Property</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose which Search Console property to sync data from.
+          </p>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load properties:{" "}
+              {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (error as Error)?.message ??
+                "Unknown error"}
+            </p>
+          )}
+
+          {!isLoading && sites.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">No Search Console properties found on this account.</p>
+          )}
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {sites.map((s) => (
+              <button
+                key={s.siteUrl}
+                onClick={() => setSelected(s.siteUrl)}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                  selected === s.siteUrl
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{s.siteUrl}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 capitalize">
+                  {s.permissionLevel.replace("site", "").replace(/([A-Z])/g, " $1").trim()}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30">
+          <button
+            onClick={onClose}
+            className="px-4 h-9 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : "Connect Property"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── GA4 Property Picker Modal ────────────────────────────────────────────────
+
+interface Ga4Property {
+  propertyId: string;
+  displayName: string;
+  accountDisplayName: string;
+}
+
+function Ga4PropertyPickerModal({
+  campaignId,
+  clientId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  clientId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: properties = [], isLoading, error } = useQuery<Ga4Property[]>({
+    queryKey: ["ga4-properties", campaignId],
+    queryFn: () =>
+      api
+        .get<Ga4Property[]>("/integrations/ga4/properties", { params: { campaignId } })
+        .then((r) => r.data),
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.put(`/clients/${clientId}/campaigns/${campaignId}/integrations`, {
+        platform: "GA4",
+        externalAccountId: selected,
+      });
+      onSaved();
+    } catch {
+      toast.error("Failed to save GA4 property — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:google-analytics" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select GA4 Property</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose which Google Analytics 4 property to sync data from.
+          </p>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load properties:{" "}
+              {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (error as Error)?.message ??
+                "Unknown error"}
+            </p>
+          )}
+
+          {!isLoading && properties.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">No GA4 properties found on this account.</p>
+          )}
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {properties.map((p) => (
+              <button
+                key={p.propertyId}
+                onClick={() => setSelected(p.propertyId)}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                  selected === p.propertyId
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{p.displayName}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{p.accountDisplayName} · {p.propertyId}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30">
+          <button
+            onClick={onClose}
+            className="px-4 h-9 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : "Connect Property"}
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }
