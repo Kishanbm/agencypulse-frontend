@@ -1,66 +1,40 @@
+import { TrendingUp, TrendingDown } from "lucide-react";
+
 interface KPIWidgetProps {
   label: string;
   value: string | number;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-  comparison?: string;
-  isLoading?: boolean;
-  error?: string;
-  onRetry?: () => void;
+  trend?: { value: number; isPositive: boolean };
 }
 
-export function KPIWidget({
-  label,
-  value,
-  trend,
-  comparison,
-  isLoading,
-  error,
-  onRetry,
-}: KPIWidgetProps) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-        <div className="h-8 w-32 bg-muted rounded animate-pulse" />
-        {comparison && <div className="h-3 w-20 bg-muted rounded animate-pulse" />}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <div className="text-sm text-red-600">{error}</div>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="text-xs text-primary hover:underline"
-          >
-            Retry
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  const trendColor = trend?.isPositive ? "text-emerald-600" : "text-red-600";
-  const trendIcon = trend?.isPositive ? "↑" : "↓";
-
+export function KPIWidget({ label, value, trend }: KPIWidgetProps) {
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-3xl font-black text-foreground">{value}</p>
-      {trend && (
-        <p className={`text-xs ${trendColor}`}>
-          {trendIcon}{Math.abs(trend.value).toFixed(1)}%
-        </p>
-      )}
-      {comparison && (
-        <p className="text-xs text-muted-foreground">{comparison}</p>
+    <div className="flex flex-col gap-2">
+      {/* Metric label */}
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground truncate leading-none">
+        {label}
+      </p>
+
+      {/* Value */}
+      <p className="text-[28px] font-extrabold text-foreground leading-none tracking-tight">
+        {value}
+      </p>
+
+      {/* Trend */}
+      {trend ? (
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold w-fit leading-none"
+          style={{
+            background: trend.isPositive ? "var(--success)" : "var(--destructive)",
+            color: "#FFFFFF",
+          }}
+        >
+          {trend.isPositive
+            ? <TrendingUp className="size-3 stroke-[3]" />
+            : <TrendingDown className="size-3 stroke-[3]" />}
+          {Math.abs(trend.value).toFixed(1)}%
+        </span>
+      ) : (
+        <span className="text-[12px] text-muted-foreground/40 leading-none">—</span>
       )}
     </div>
   );

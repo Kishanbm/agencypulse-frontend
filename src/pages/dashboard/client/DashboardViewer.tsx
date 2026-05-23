@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -166,31 +166,34 @@ export function DashboardViewer() {
 
   return (
     <div className="flex gap-0 min-h-0">
-      <div className="flex-1 min-w-0 p-4 sm:p-5 lg:p-7 space-y-5">
-        {/* Breadcrumb + toolbar */}
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" as const }}
-          className="flex items-start justify-between gap-4 flex-wrap"
+      <div className="flex-1 min-w-0 space-y-0 transition-all duration-200 ease-in-out">
+
+        {/* ── Page header bar ── */}
+        <div
+          className="px-5 lg:px-7 py-4 flex items-center justify-between gap-4 flex-wrap sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border shadow-sm"
         >
           <div>
-            <nav className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mb-1.5">
-              <Link to="/clients" className="hover:text-foreground transition-colors font-medium">Clients</Link>
-              <ChevronRight className="size-3 shrink-0" />
-              <Link to={`/clients/${clientId}`} className="hover:text-foreground transition-colors font-medium">Client</Link>
-              <ChevronRight className="size-3 shrink-0" />
-              <Link to={`/clients/${clientId}/campaigns/${campaignId}`} className="hover:text-foreground transition-colors font-medium">Campaign</Link>
-              <ChevronRight className="size-3 shrink-0" />
-              <Link to={`/clients/${clientId}/campaigns/${campaignId}/dashboards`} className="hover:text-foreground transition-colors font-medium">Dashboards</Link>
-              <ChevronRight className="size-3 shrink-0" />
+            <nav className="flex items-center gap-1 text-[11px] text-muted-foreground flex-wrap mb-1">
+              <Link to="/clients" className="hover:text-foreground transition-colors">Clients</Link>
+              <ChevronRight className="size-2.5 shrink-0" />
+              <Link to={`/clients/${clientId}`} className="hover:text-foreground transition-colors">Client</Link>
+              <ChevronRight className="size-2.5 shrink-0" />
+              <Link to={`/clients/${clientId}/campaigns/${campaignId}`} className="hover:text-foreground transition-colors">Campaign</Link>
+              <ChevronRight className="size-2.5 shrink-0" />
+              <Link to={`/clients/${clientId}/campaigns/${campaignId}/dashboards`} className="hover:text-foreground transition-colors">Dashboards</Link>
+              <ChevronRight className="size-2.5 shrink-0" />
               <span className="text-foreground font-semibold">{dashboard.name}</span>
             </nav>
-            <div className="flex items-center gap-2 flex-wrap">
-              <LayoutDashboard className="size-4 text-muted-foreground shrink-0" />
-              <h3 className="font-heading font-semibold text-foreground text-base sm:text-lg">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div
+                className="size-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "rgba(91,71,224,0.10)" }}
+              >
+                <LayoutDashboard className="size-3.5" style={{ color: "#5B47E0" }} />
+              </div>
+              <h1 className="font-heading font-bold text-foreground text-lg tracking-tight">
                 {dashboard.name}
-              </h3>
+              </h1>
               {edit.editMode && (
                 <span
                   className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
@@ -217,21 +220,21 @@ export function DashboardViewer() {
                 {canEdit && (
                   <>
                     <button
-                      className="h-8 px-3 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors hover:bg-muted text-muted-foreground"
-                      style={{ border: '1px solid #ECECE6' }}
+                      className="h-9 px-4 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all hover:bg-muted text-foreground"
+                      style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-xs)" }}
                       onClick={() => { setTemplateName(dashboard?.name ?? ""); setTemplateNamePrompt(true); }}
                       disabled={savingTemplate}
                     >
-                      {savingTemplate ? <Loader2 className="size-3.5 animate-spin" /> : <Layers className="size-3.5" />}
+                      {savingTemplate ? <Loader2 className="size-4 animate-spin" /> : <Layers className="size-4 text-muted-foreground" />}
                       {savingTemplate ? "Saving…" : "Save as Template"}
                     </button>
                     <button
-                      className="h-8 px-3 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
-                      style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
+                      className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 transition-all hover:shadow-lg hover:-translate-y-0.5 shadow-md"
+                      style={{ background: "linear-gradient(135deg, var(--primary) 0%, #7C3AED 100%)" }}
                       onClick={handleEnterEdit}
                     >
-                      <Pencil className="size-3.5" />
-                      Edit
+                      <Pencil className="size-4 text-white/90" />
+                      Edit Dashboard
                     </button>
                   </>
                 )}
@@ -239,41 +242,57 @@ export function DashboardViewer() {
             ) : (
               <>
                 <button
-                  className="h-8 px-3 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground"
-                  style={{ border: '1px solid #ECECE6' }}
+                  className="h-9 px-4 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all text-foreground hover:bg-muted"
+                  style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-xs)" }}
                   onClick={() => setShowAddModal(true)}
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className="size-4 text-muted-foreground" />
                   Add Widget
                 </button>
                 <button
-                  className="h-8 px-3 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors hover:bg-muted text-muted-foreground"
-                  style={{ border: '1px solid #ECECE6' }}
+                  className="h-9 px-4 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all text-muted-foreground hover:bg-muted"
+                  style={{ border: "1px solid var(--border)" }}
                   onClick={edit.cancelEdit}
                   disabled={edit.isSaving}
                 >
-                  <X className="size-3.5" />
+                  <X className="size-4" />
                   Cancel
                 </button>
                 <button
-                  className="h-8 px-3 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
+                  className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 shadow-md"
+                  style={{ background: "var(--primary)" }}
                   onClick={edit.saveChanges}
                   disabled={!edit.isDirty || edit.isSaving}
                 >
-                  {edit.isSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                  {edit.isSaving ? "Saving…" : "Save"}
+                  {edit.isSaving ? <Loader2 className="size-4 animate-spin text-white/90" /> : <Save className="size-4 text-white/90" />}
+                  {edit.isSaving ? "Saving…" : "Save Changes"}
                 </button>
               </>
             )}
           </div>
-        </motion.div>
+        </div>
+
+        {/* ── Main content area ── */}
+        <div
+          className="px-5 lg:px-7 py-8 min-h-[calc(100vh-120px)] relative"
+          style={{
+            backgroundColor: "#EDECEA",
+            backgroundImage: `
+              linear-gradient(45deg, rgba(255,255,255,0.55) 25%, transparent 25%),
+              linear-gradient(-45deg, rgba(255,255,255,0.55) 25%, transparent 25%),
+              linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
+              linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%)
+            `,
+            backgroundSize: "80px 80px",
+            backgroundPosition: "0 0, 0 40px, 40px -40px, -40px 0px",
+          }}
+        >
 
         {/* Widget data 403 warning */}
         {has403(widgetsError) && (
           <div
-            className="px-4 py-3 rounded-xl text-xs font-medium"
-            style={{ background: 'rgba(245,165,36,0.08)', border: '1px solid rgba(245,165,36,0.20)', color: '#d97706' }}
+            className="mb-4 px-4 py-3 rounded-xl text-xs font-medium"
+            style={{ background: "rgba(245,165,36,0.08)", border: "1px solid rgba(245,165,36,0.22)", color: "#d97706" }}
           >
             You don't have permission to view widget data for this dashboard.
           </div>
@@ -296,17 +315,24 @@ export function DashboardViewer() {
             />
           )}
         />
+        </div>{/* end main content area */}
       </div>
 
-      {/* Config panel — edit mode only */}
+      {/* Config panel — only renders when a widget is selected; smooth transition prevents hard jiggle */}
       {edit.editMode && edit.selectedWidget && (
-        <WidgetConfigPanel
-          widget={edit.selectedWidget}
-          onClose={() => edit.setSelectedWidgetId(null)}
-          onUpdate={(changes) => edit.updateWidget(edit.selectedWidgetId!, changes)}
-          onDelete={() => handleDeleteWidget(edit.selectedWidgetId!)}
-          isDeleting={deletingWidgetId === edit.selectedWidgetId}
-        />
+        <div className="w-72 shrink-0 transition-all duration-200 ease-in-out">
+          <WidgetConfigPanel
+            widget={edit.selectedWidget}
+            onClose={() => edit.setSelectedWidgetId(null)}
+            onUpdate={(changes) => edit.updateWidget(edit.selectedWidgetId!, changes)}
+            onResize={(w, h) => {
+              const wgt = edit.editedWidgets.find((ew) => ew.id === edit.selectedWidgetId);
+              if (wgt) edit.updatePositions([{ i: wgt.id, x: wgt.position.x, y: wgt.position.y, w, h }]);
+            }}
+            onDelete={() => handleDeleteWidget(edit.selectedWidgetId!)}
+            isDeleting={deletingWidgetId === edit.selectedWidgetId}
+          />
+        </div>
       )}
 
       {/* Add widget modal */}

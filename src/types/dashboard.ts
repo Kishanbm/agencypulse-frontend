@@ -24,6 +24,11 @@ export interface WidgetConfig {
     device?: string;
     country?: string;
   };
+  headerColor?: string;
+  headerTextColor?: string;
+  bodyColor?: string;
+  bodyTextColor?: string;
+  chartColors?: string[];
 }
 
 export interface DashboardWidget {

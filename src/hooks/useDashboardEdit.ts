@@ -72,7 +72,15 @@ export function useDashboardEdit({ campaignId, dashboardId }: UseDashboardEditPr
     config: WidgetConfig;
   }) => {
     const maxY = editedWidgets.reduce((max, w) => Math.max(max, w.position.y + w.position.h), 0);
-    const position: WidgetPosition = { x: 0, y: maxY, w: 6, h: 3 };
+    const defaultSize: Record<string, { w: number; h: number }> = {
+      KPI: { w: 3, h: 3 },
+      LINE_CHART: { w: 6, h: 4 },
+      BAR_CHART: { w: 6, h: 4 },
+      TABLE: { w: 6, h: 5 },
+      PIE_CHART: { w: 6, h: 4 },
+    };
+    const size = defaultSize[dto.widgetType] ?? { w: 6, h: 3 };
+    const position: WidgetPosition = { x: 0, y: maxY, ...size };
 
     const response = await api.post<DashboardWidget>(
       `/campaigns/${campaignId}/dashboards/${dashboardId}/widgets`,

@@ -79,6 +79,56 @@ export function getPlatformIcon(platformKey: string): string | null {
   return PLATFORM_ICONIFY_MAP[platformKey] ?? null;
 }
 
+/** Returns the human-readable platform name for the given key, or null. */
+export function getPlatformName(platformKey: string): string | null {
+  return PLATFORM_CATALOG.find((p) => p.key === platformKey)?.name ?? null;
+}
+
+/** Brand color map per platform key. */
+const PLATFORM_COLORS: Record<string, string> = {
+  GA4:                       '#F57C00',
+  GOOGLE_ADS:                '#4285F4',
+  GOOGLE_SEARCH_CONSOLE:     '#34A853',
+  GOOGLE_AD_MANAGER:         '#4285F4',
+  GOOGLE_DV360:              '#4285F4',
+  GOOGLE_LOCAL_SERVICES_ADS: '#4285F4',
+  GOOGLE_BUSINESS_PROFILE:   '#34A853',
+  GOOGLE_SHEETS:             '#34A853',
+  GOOGLE_BIGQUERY:           '#4285F4',
+  GOOGLE_PAGESPEED:          '#4285F4',
+  META_ADS:                  '#1877F2',
+  INSTAGRAM_ADS:             '#E1306C',
+  INSTAGRAM_ORGANIC:         '#E1306C',
+  FACEBOOK_ORGANIC:          '#1877F2',
+  YOUTUBE_ANALYTICS:         '#FF0000',
+  TIKTOK_ADS:                '#010101',
+  TIKTOK_ORGANIC:            '#010101',
+  PINTEREST_ADS:             '#E60023',
+  PINTEREST_ORGANIC:         '#E60023',
+  X_ADS:                     '#1DA1F2',
+  X_ORGANIC:                 '#1DA1F2',
+  REDDIT_ADS:                '#FF4500',
+  LINKEDIN_ADS:              '#0A66C2',
+  VIMEO:                     '#1AB7EA',
+  SPOTIFY_ADS:               '#1DB954',
+  SNAPCHAT_ADS:              '#FFFC00',
+  AMAZON_ADS:                '#FF9900',
+  MICROSOFT_ADS:             '#00A4EF',
+  KLAVIYO:                   '#3B5998',
+  MAILCHIMP:                 '#FFE01B',
+  HUBSPOT:                   '#FF7A59',
+  SHOPIFY:                   '#96BF48',
+  WOOCOMMERCE:               '#96588A',
+  STRIPE:                    '#635BFF',
+  SEMRUSH:                   '#FF6422',
+  MATOMO:                    '#3152A0',
+};
+
+/** Returns the brand hex color for a platform, defaulting to violet. */
+export function getPlatformColor(platformKey: string): string {
+  return PLATFORM_COLORS[platformKey] ?? '#5B47E0';
+}
+
 function s(key: string): string {
   return key.toLowerCase().replace(/_/g, '-');
 }

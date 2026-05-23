@@ -39,16 +39,15 @@ export function WidgetRenderer({
       if (isLoading) return <WidgetSkeleton type="kpi" />;
       if (!widgetData?.data) return <WidgetEmptyState message="No data for selected range" />;
 
-      // Backend shape: { current: { metrics: { key: value } }, previous?: { metrics: {...} } }
       const kpiData = widgetData.data as Record<string, unknown>;
       const rawCurrent = kpiData.current as Record<string, unknown> | undefined;
       const rawPrevious = kpiData.previous as Record<string, unknown> | undefined;
-      // Unwrap nested metrics object if present
       const current = (rawCurrent?.metrics ?? rawCurrent ?? {}) as Record<string, number>;
       const previous = (rawPrevious?.metrics ?? rawPrevious ?? {}) as Record<string, number>;
 
       const firstMetric = Object.keys(current).find((k) => typeof current[k] === "number");
       if (!firstMetric) return <WidgetEmptyState message="No data for selected range" />;
+
       const currentValue = current[firstMetric];
       const previousValue = previous[firstMetric] ?? 0;
 
@@ -60,7 +59,7 @@ export function WidgetRenderer({
 
       return (
         <KPIWidget
-          label={widget.config?.title || "Metric"}
+          label={widget.config?.title || firstMetric}
           value={formatValue(currentValue, firstMetric)}
           trend={trend}
         />
@@ -72,8 +71,6 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      // Backend shape: [{ period: "YYYY-MM-DD", metrics: { key: value } }]
-      // Flatten to: [{ date: "YYYY-MM-DD", key: value }]
       const raw = widgetData.data as Array<Record<string, unknown>>;
       const chartData = raw.map((r) => {
         const metrics = (r.metrics ?? {}) as Record<string, number>;
@@ -81,12 +78,13 @@ export function WidgetRenderer({
       });
       const keys = chartData.length > 0 ? Object.keys(chartData[0]).filter((k) => k !== "date") : [];
 
+      const lineDefaults = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
       return (
         <LineChartWidget
           data={chartData as Parameters<typeof LineChartWidget>[0]["data"]}
           lines={keys.map((key, idx) => ({
             dataKey: key,
-            stroke: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"][idx % 4],
+            stroke: widget.config?.chartColors?.[idx] || lineDefaults[idx % 4],
             label: key,
           }))}
         />
@@ -98,7 +96,6 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      // Flatten backend shape same as LINE_CHART
       const raw = widgetData.data as Array<Record<string, unknown>>;
       const chartData = raw.map((r) => {
         const metrics = (r.metrics ?? {}) as Record<string, number>;
@@ -106,12 +103,13 @@ export function WidgetRenderer({
       });
       const keys = chartData.length > 0 ? Object.keys(chartData[0]).filter((k) => k !== "name") : [];
 
+      const barDefaults = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
       return (
         <BarChartWidget
           data={chartData as Parameters<typeof BarChartWidget>[0]["data"]}
           bars={keys.map((key, idx) => ({
             dataKey: key,
-            fill: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"][idx % 4],
+            fill: widget.config?.chartColors?.[idx] || barDefaults[idx % 4],
             label: key,
           }))}
         />
@@ -123,7 +121,6 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      // Flatten backend shape: { period, metrics: {...} } → { Date, key: value }
       const raw = widgetData.data as Array<Record<string, unknown>>;
       const tableData = raw.map((r) => {
         const metrics = (r.metrics ?? {}) as Record<string, number>;
@@ -147,14 +144,21 @@ export function WidgetRenderer({
       if (!Array.isArray(widgetData?.data) || widgetData.data.length === 0)
         return <WidgetEmptyState message="No data for selected range" />;
 
-      // For pie chart, take the last period's metrics as name/value slices
       const raw = widgetData.data as Array<Record<string, unknown>>;
-      const lastRow = raw[raw.length - 1];
-      const metrics = (lastRow?.metrics ?? lastRow ?? {}) as Record<string, number>;
-      const pieData = Object.entries(metrics)
-        .filter(([k]) => k !== "period" && k !== "date")
-        .map(([name, value]) => ({ name, value: Number(value) }));
-      return <PieChartWidget data={pieData} />;
+      // Sum all rows per metric key so pie shows totals across the date range
+      const totals: Record<string, number> = {};
+      raw.forEach((row) => {
+        const metrics = (row.metrics ?? row ?? {}) as Record<string, unknown>;
+        Object.entries(metrics).forEach(([k, v]) => {
+          if (k === "period" || k === "date") return;
+          if (typeof v === "number") totals[k] = (totals[k] ?? 0) + v;
+        });
+      });
+      const pieData = Object.entries(totals)
+        .filter(([, v]) => v > 0)
+        .map(([name, value]) => ({ name, value }));
+      if (pieData.length === 0) return <WidgetEmptyState message="No data for selected range" />;
+      return <PieChartWidget data={pieData} colors={widget.config?.chartColors} />;
     }
 
     default:

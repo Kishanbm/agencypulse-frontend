@@ -210,6 +210,7 @@ export default function IntegrationsPage() {
   const [ga4PropertyPicker, setGa4PropertyPicker] = useState(false);
   const [gscSitePicker, setGscSitePicker] = useState(false);
   const [youtubeChannelPicker, setYoutubeChannelPicker] = useState(false);
+  const [googleAdsCustomerPicker, setGoogleAdsCustomerPicker] = useState(false);
   const [shopDomainInput, setShopDomainInput] = useState("");
 
   const queryKey = ["integrations", campaignId];
@@ -233,6 +234,8 @@ export default function IntegrationsPage() {
       setGscSitePicker(true);
     } else if (connected.toLowerCase() === "youtube") {
       setYoutubeChannelPicker(true);
+    } else if (connected.toLowerCase() === "google-ads") {
+      setGoogleAdsCustomerPicker(true);
     } else {
       const entry = PLATFORM_CATALOG.find(
         (p) => p.slug === connected || p.key.toLowerCase() === connected.toLowerCase(),
@@ -285,8 +288,10 @@ export default function IntegrationsPage() {
       api.post(`/sync/trigger`, { campaignId, platform: platformKey }),
     onSuccess: () => {
       toast.success("Sync started — data will update in a few seconds");
-      void queryClient.invalidateQueries({ queryKey });
-      setTimeout(() => void queryClient.invalidateQueries({ queryKey }), 8000);
+      // Poll 4 times so the UI picks up lastSyncAt once the job completes
+      [3000, 8000, 15000, 25000].forEach((ms) =>
+        setTimeout(() => void queryClient.invalidateQueries({ queryKey }), ms),
+      );
     },
     onError: () => toast.error("Could not start sync — try again"),
   });
@@ -715,6 +720,19 @@ export default function IntegrationsPage() {
         />
       )}
 
+      {/* Google Ads Customer Picker */}
+      {googleAdsCustomerPicker && (
+        <GoogleAdsCustomerPickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setGoogleAdsCustomerPicker(false)}
+          onSaved={() => {
+            setGoogleAdsCustomerPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("Google Ads connected successfully");
+          }}
+        />
+      )}
+
       {/* API Key Modal */}
       {apiKeyTarget && (
         <ApiKeyConnectModal
@@ -1019,6 +1037,133 @@ function YoutubeChannelPickerModal({
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Channel
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Google Ads Customer Picker Modal ────────────────────────────────────────
+
+interface GoogleAdsCustomer {
+  customerId: string;
+  descriptiveName: string;
+  resourceName: string;
+}
+
+function GoogleAdsCustomerPickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: customers = [], isLoading, error } = useQuery<GoogleAdsCustomer[]>({
+    queryKey: ["google-ads-customers", campaignId],
+    queryFn: () =>
+      api
+        .get<GoogleAdsCustomer[]>("/integrations/google-ads/customers", { params: { campaignId } })
+        .then((r) => r.data),
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.post("/integrations/google-ads/select-customer", { campaignId, customerId: selected });
+      onSaved();
+    } catch {
+      toast.error("Failed to save Google Ads account — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:google-ads" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select Google Ads Account</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose which Google Ads account to sync data from.
+          </p>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load accounts:{" "}
+              {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (error as Error)?.message ??
+                "Unknown error"}
+            </p>
+          )}
+
+          {!isLoading && customers.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">
+              No Google Ads accounts found on this Google account.
+            </p>
+          )}
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {customers.map((c) => (
+              <button
+                key={c.customerId}
+                onClick={() => setSelected(c.customerId)}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                  selected === c.customerId
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{c.descriptiveName}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Customer ID: {c.customerId}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            Connect Account
           </button>
         </div>
       </motion.div>
