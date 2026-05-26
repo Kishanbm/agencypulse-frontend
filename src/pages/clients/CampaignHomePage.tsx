@@ -1,4 +1,5 @@
-﻿import { Link, useParams } from "react-router-dom";
+import React from "react";
+import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
@@ -17,8 +18,10 @@ import {
   Rocket,
   Calendar,
   ArrowRight,
+  GripHorizontal,
+  Clock,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, Reorder } from "motion/react";
 import { api } from "@/lib/api";
 import { InsightsPanel } from "@/components/ai/InsightsPanel";
 import type { Campaign, Client } from "@/types/clients";
@@ -37,6 +40,22 @@ function useClient(clientId: string) {
     queryKey: ["client", clientId],
     queryFn: () => api.get<Client>(`/clients/${clientId}`).then((r) => r.data),
     staleTime: 60_000,
+  });
+}
+
+function useIntegrations(clientId: string, campaignId: string) {
+  return useQuery<{ status: string }[]>({
+    queryKey: ["integrations", campaignId],
+    queryFn: () => api.get<{ status: string }[]>(`/clients/${clientId}/campaigns/${campaignId}/integrations`).then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+function useCampaignActivity(clientId: string, campaignId: string) {
+  return useQuery<{ id: string; action: string; time: string; type: string }[]>({
+    queryKey: ["campaign-activity", campaignId],
+    queryFn: () => api.get<{ id: string; action: string; time: string; type: string }[]>(`/clients/${clientId}/campaigns/${campaignId}/activity`).then((r) => r.data),
+    staleTime: 10_000,
   });
 }
 
@@ -61,6 +80,11 @@ export default function CampaignHomePage() {
 
   const { data: campaign, isLoading: campaignLoading } = useCampaign(clientId!, campaignId!);
   const { data: client } = useClient(clientId!);
+  const { data: integrations } = useIntegrations(clientId!, campaignId!);
+  const { data: activityData, isLoading: activityLoading } = useCampaignActivity(clientId!, campaignId!);
+
+  const connectedCount = integrations?.filter((i) => i.status === "CONNECTED").length ?? 0;
+  const errorCount = integrations?.filter((i) => i.status === "ERROR").length ?? 0;
 
   const base = `/clients/${clientId}/campaigns/${campaignId}`;
 
@@ -166,6 +190,31 @@ export default function CampaignHomePage() {
     },
   ];
 
+  const [cards, setCards] = React.useState<NavCard[]>(navCards);
+
+  React.useEffect(() => {
+    if (campaign?.toolsLayout && Array.isArray(campaign.toolsLayout)) {
+      const savedCards = campaign.toolsLayout.map((label: string) => navCards.find(c => c.label === label)).filter(Boolean) as NavCard[];
+      if (savedCards.length === navCards.length) {
+        setCards(savedCards);
+      } else {
+        setCards(navCards);
+      }
+    } else {
+      setCards(navCards);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign?.toolsLayout]);
+
+  const handleReorder = (newCards: NavCard[]) => {
+    setCards(newCards);
+    const layout = newCards.map(c => c.label);
+    // Optimistic backend save
+    api.patch(`/clients/${clientId}/campaigns/${campaignId}`, { toolsLayout: layout }).catch(() => {
+      // Revert if error? For now simple optimistic fire-and-forget is fine
+    });
+  };
+
   if (campaignLoading) {
     return (
       <div className="p-5 lg:p-7 flex items-center justify-center h-64">
@@ -214,91 +263,166 @@ export default function CampaignHomePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden"
-        style={{ border: '1px solid #ECECE6' }}
+        className="bg-white rounded-none overflow-hidden relative"
+        style={{ 
+          border: '1px solid #ECECE6',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 10px 24px rgba(0,0,0,0.04)' 
+        }}
       >
-        <div
-          className="px-6 pt-6 pb-5 flex items-start gap-4 flex-wrap"
-          style={{ background: '#0F0D1F' }}
-        >
-          <div
-            className="size-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-lg shrink-0"
-            style={{ background: 'linear-gradient(135deg, #5B47E0, #FF7A59)' }}
-          >
-            {campaign.name.charAt(0).toUpperCase()}
+        <div className="px-8 py-8 flex items-center justify-start gap-x-24 gap-y-6 flex-wrap relative z-10">
+          <div className="flex items-center gap-6">
+            <div
+              className="size-16 rounded-none flex items-center justify-center text-2xl font-bold shrink-0"
+              style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0' }}
+            >
+              {campaign.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="font-heading font-bold text-2xl text-foreground tracking-tight">
+                  {campaign.name}
+                </h1>
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-none"
+                  style={{ background: statusStyle.bg, color: statusStyle.color }}
+                >
+                  {statusStyle.label}
+                </span>
+              </div>
+              {campaign.description && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {campaign.description}
+                </p>
+              )}
+              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground font-medium">
+                <span className="flex items-center gap-1.5"><Calendar className="size-3" /> Created {new Date(campaign.createdAt).toLocaleDateString()}</span>
+                <span className="flex items-center gap-1.5"><Activity className="size-3" /> Updated {new Date(campaign.updatedAt).toLocaleDateString()}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-heading font-bold text-xl text-white tracking-tight">
-                {campaign.name}
-              </h1>
-              <span
-                className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                style={{ background: statusStyle.bg, color: statusStyle.color }}
-              >
-                {statusStyle.label}
-              </span>
-            </div>
-            {campaign.description && (
-              <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                {campaign.description}
-              </p>
-            )}
-            <div className="flex items-center gap-1.5 mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              <Calendar className="size-3" />
-              Created {new Date(campaign.createdAt).toLocaleDateString("en-US", {
-                month: "long", day: "numeric", year: "numeric",
-              })}
-            </div>
+          
+          <div className="flex gap-10 items-center border-l border-[#ECECE6] pl-10 hidden lg:flex ml-20 lg:ml-40 xl:ml-52">
+             <div className="flex flex-col">
+               <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Connected Integrations</span>
+               <span className="text-xl font-bold text-foreground">
+                  {connectedCount} <span className="text-sm font-medium text-muted-foreground">Active</span>
+               </span>
+             </div>
+             <div className="flex flex-col border-l border-[#ECECE6] pl-10">
+               <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Sync Issues</span>
+               <span className="text-xl font-bold" style={{ color: errorCount > 0 ? '#f43f5e' : 'inherit' }}>
+                  {errorCount} <span className="text-sm font-medium" style={{ color: errorCount > 0 ? 'rgba(244,63,94,0.7)' : 'var(--muted-foreground)' }}>Errors</span>
+               </span>
+             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Nav cards grid */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-4">Campaign Tools</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {navCards.map((card, i) => (
-            <motion.div
-              key={card.label}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: i * 0.04, ease: "easeOut" as const }}
-            >
-              <Link
-                to={card.href}
-                className="group flex flex-col bg-white rounded-2xl p-5 hover:shadow-lg transition-all relative overflow-hidden"
-                style={{ border: '1px solid #ECECE6' }}
+      {/* Main Grid and Sidebar */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        
+        {/* Nav cards grid (Drag and Drop) */}
+        <div className="xl:col-span-3">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Campaign Tools</h2>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-1.5">
+              <GripHorizontal className="size-3" /> Drag to reorder
+            </span>
+          </div>
+          <Reorder.Group 
+            axis="y" 
+            values={cards} 
+            onReorder={handleReorder} 
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {cards.map((card, i) => (
+              <Reorder.Item
+                key={card.label}
+                value={card}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: i * 0.04, ease: "easeOut" as const }}
+                style={{ y: 0 }} // Required for Framer Motion Reorder grid bug fix sometimes, but usually fine
+                className="relative"
               >
-                {/* Top accent line */}
                 <div
-                  className="absolute top-0 left-0 right-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: card.gradient }}
-                />
-                <div
-                  className="size-10 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: card.iconBg }}
+                  className={`group flex flex-col bg-white rounded-none p-6 transition-all duration-300 relative overflow-hidden h-full cursor-grab active:cursor-grabbing ${card.label === 'AI Assistant' ? 'ring-1 ring-purple-400 shadow-md' : ''}`}
+                  style={{ 
+                    border: card.label === 'AI Assistant' ? 'none' : '1px solid #ECECE6',
+                    boxShadow: card.label === 'AI Assistant' ? '0 4px 14px rgba(139,92,246,0.15)' : '0 1px 3px rgba(0,0,0,0.02), 0 10px 24px rgba(0,0,0,0.06)'
+                  }}
                 >
-                  <card.icon className="size-5" style={{ color: card.iconColor }} />
+                  {card.label === 'AI Assistant' && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 opacity-50" />
+                  )}
+                  <Link to={card.href} className="absolute inset-0 z-10" draggable={false} />
+                  
+                  <div
+                    className="size-12 rounded-none flex items-center justify-center mb-5 transition-transform group-hover:scale-110 relative z-20"
+                    style={{ background: card.iconBg }}
+                  >
+                    <card.icon className="size-6" style={{ color: card.iconColor }} />
+                  </div>
+                  <h3
+                    className="font-heading font-semibold text-sm text-foreground transition-colors relative z-20 flex items-center justify-between"
+                  >
+                    {card.label}
+                    <GripHorizontal className="size-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed flex-1 relative z-20 pr-4">
+                    {card.description}
+                  </p>
+                  <div
+                    className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity relative z-20"
+                    style={{ color: card.iconColor }}
+                  >
+                    Open <ArrowRight className="size-3" />
+                  </div>
                 </div>
-                <h3
-                  className="font-heading font-semibold text-sm text-foreground transition-colors"
-                  style={{ color: 'inherit' }}
-                >
-                  {card.label}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed flex-1">
-                  {card.description}
-                </p>
-                <div
-                  className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: card.iconColor }}
-                >
-                  Open <ArrowRight className="size-3" />
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        </div>
+
+        {/* Recent Activity Feed Sidebar */}
+        <div className="xl:col-span-1">
+          <h2 className="text-sm font-semibold text-foreground mb-4">Recent Activity</h2>
+          <div className="bg-white rounded-none p-5 relative overflow-hidden" style={{ border: '1px solid #ECECE6', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+            <div className="space-y-5">
+              {activityLoading ? (
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin mr-2" /> <span className="text-xs">Loading activity...</span>
                 </div>
-              </Link>
-            </motion.div>
-          ))}
+              ) : activityData?.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No recent activity.</p>
+              ) : (
+                activityData?.map((activity, i) => (
+                  <div key={activity.id} className="flex gap-3 relative">
+                    {i !== activityData.length - 1 && (
+                      <div className="absolute left-3 top-6 bottom-[-10px] w-px bg-border" />
+                    )}
+                    <div className="size-6 rounded-full bg-slate-50 flex items-center justify-center border-2 border-white relative z-10 shrink-0 shadow-sm" style={{ borderColor: '#ECECE6' }}>
+                      {activity.type === 'alert' && <Bell className="size-3 text-rose-500" />}
+                      {activity.type === 'note' && <MessageSquare className="size-3 text-sky-500" />}
+                      {activity.type === 'integration' && <Plug className="size-3 text-orange-500" />}
+                      {activity.type !== 'alert' && activity.type !== 'note' && activity.type !== 'integration' && <Activity className="size-3 text-primary" />}
+                    </div>
+                    <div className="flex flex-col gap-0.5 pt-0.5">
+                      <span className="text-xs font-medium text-foreground leading-tight">
+                        {activity.action}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="size-3" /> {activity.time}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <button className="w-full mt-6 text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              View Audit Log
+            </button>
+          </div>
         </div>
       </div>
 

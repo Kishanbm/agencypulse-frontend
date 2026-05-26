@@ -7,6 +7,8 @@ export interface Client {
   website: string | null;
   logoUrl: string | null;
   color: string | null;
+  services: string[];
+  campaigns?: { id: string }[];
   status: ClientStatus;
   createdAt: string;
   updatedAt: string;
@@ -32,11 +34,13 @@ export interface ClientsListResponse {
 export interface CreateClientDto {
   name: string;
   website?: string;
+  services?: string[];
 }
 
 export interface UpdateClientDto {
   name?: string;
   website?: string;
+  services?: string[];
   status?: ClientStatus;
 }
 
@@ -46,6 +50,12 @@ export interface Campaign {
   name: string;
   description: string | null;
   status: CampaignStatus;
+  toolsLayout?: string[] | null;
+  _count?: {
+    dashboards?: number;
+    reports?: number;
+    integrationConnections?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }

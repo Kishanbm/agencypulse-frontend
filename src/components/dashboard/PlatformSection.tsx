@@ -429,9 +429,32 @@ export function PlatformSection({
                   transition: "outline 0.1s, box-shadow 0.15s",
                 }}
               >
-                {/* Header strip — shown in both edit mode (as drag handle) and view mode (as title bar).
-                    Always carries headerBg so the color is visible regardless of mode. KPIs have no header. */}
-                {!isKPI && (
+                {/* Header strip — shown for all widget types.
+                    Non-KPI: full header with title text and optional drag handle.
+                    KPI in edit mode: compact drag handle bar with title.
+                    KPI in view mode: thin colored accent bar (headerBg visible even with no title). */}
+                {isKPI ? (
+                  <div
+                    className={editMode ? "widget-drag-handle flex items-center justify-between px-3 py-1.5 cursor-grab active:cursor-grabbing select-none shrink-0" : "flex items-center px-3 py-1.5 shrink-0"}
+                    style={{
+                      background: headerBg,
+                      borderBottom: "1px solid rgba(0,0,0,0.07)",
+                      borderRadius: `${radius - 1}px ${radius - 1}px 0 0`,
+                    }}
+                    onClick={editMode ? (e) => { e.stopPropagation(); onWidgetClick?.(widget.id); } : undefined}
+                  >
+                    <span className="text-[10px] font-semibold truncate" style={{ color: headerTextColor }}>
+                      {widget.config?.title || "KPI"}
+                    </span>
+                    {editMode && (
+                      <div className="flex gap-0.5 ml-2 shrink-0">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className="w-px h-3 rounded" style={{ background: "rgba(0,0,0,0.18)" }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <div
                     className={editMode ? "widget-drag-handle flex items-center justify-between px-3 py-2 cursor-grab active:cursor-grabbing select-none shrink-0" : "flex items-center px-4 py-2.5 shrink-0"}
                     style={{
@@ -459,8 +482,8 @@ export function PlatformSection({
 
                 {/* Content body */}
                 <div
-                  className={isKPI ? "flex flex-col overflow-hidden" : "flex-1 min-h-0 flex flex-col overflow-hidden"}
-                  style={{ padding: "14px 16px", flex: isKPI ? "none" : "1 1 0", background: bodyBg, borderRadius: isKPI ? `${radius}px` : `0 0 ${radius}px ${radius}px`, ...(bodyTextColor ? { color: bodyTextColor } : {}) }}
+                  className="flex-1 min-h-0 flex flex-col overflow-hidden"
+                  style={{ padding: "14px 16px", flex: "1 1 0", background: bodyBg, borderRadius: `0 0 ${radius}px ${radius}px`, ...(bodyTextColor ? { color: bodyTextColor } : {}) }}
                   onMouseDown={(e) => {
                     if (editMode) {
                       e.nativeEvent.stopImmediatePropagation();
@@ -468,7 +491,7 @@ export function PlatformSection({
                     }
                   }}
                 >
-                  <div className={isKPI ? "" : "flex-1 min-h-0 flex flex-col"}>
+                  <div className="flex-1 min-h-0 flex flex-col">
                     {renderWidget(widget)}
                   </div>
                 </div>

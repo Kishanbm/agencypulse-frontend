@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Layers, Wifi, Zap, TrendingUp, TrendingDown } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -8,6 +8,7 @@ import { OverviewKpis }     from './components/OverviewKpis';
 import { OverviewRanking }  from './components/OverviewRanking';
 import { OverviewHealth }   from './components/OverviewHealth';
 import { OverviewClients }  from './components/OverviewClients';
+import { OnboardingChecklist } from './components/OnboardingChecklist';
 import type { AgencyHealthResponse, CampaignRankingItem } from './overview.types';
 import { getDateRange, DATE_PRESETS } from './overview.utils';
 
@@ -163,6 +164,12 @@ export default function OverviewPage() {
     staleTime: 60_000,
   });
 
+  const { data: agency } = useQuery({
+    queryKey: ['agency', 'me'],
+    queryFn: () => api.get('/agencies/me').then((r) => r.data),
+    staleTime: 60_000,
+  });
+
   return (
     <div className="p-4 sm:p-5 lg:p-7 space-y-6 pb-12 max-w-[1400px] mx-auto">
 
@@ -194,6 +201,8 @@ export default function OverviewPage() {
           ))}
         </div>
       </motion.div>
+
+      <OnboardingChecklist agencyInterests={agency?.interests} />
 
       <ScorecardStrip />
 

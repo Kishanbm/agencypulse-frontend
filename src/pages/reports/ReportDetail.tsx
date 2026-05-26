@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -167,6 +167,13 @@ function inputBlur(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) 
 function AddScheduleModal({ campaignId, reportId, onClose }: { campaignId: string; reportId: string; onClose: () => void }) {
   const api = getApiClient();
   const qc = useQueryClient();
+
+  const { data: agency } = useQuery<{ timezone?: string }>({
+    queryKey: ["agency-me"],
+    queryFn: () => api.get("/agencies/me").then((r) => r.data),
+  });
+  const tz = agency?.timezone || "UTC";
+
   const [form, setForm] = useState<ScheduleFormState>({
     frequency: "weekly",
     dayOfWeek: 1,
@@ -288,7 +295,7 @@ function AddScheduleModal({ campaignId, reportId, onClose }: { campaignId: strin
 
           {/* Time */}
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">Time (UTC)</p>
+            <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">Time ({tz})</p>
             <div className="flex items-center gap-2">
               <input
                 type="number" min={0} max={23}

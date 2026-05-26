@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -7,7 +7,8 @@ import { z } from "zod";
 import {
   Plus, MoreHorizontal, Pencil, Trash2, Loader2,
   ChevronRight, Rocket, ArrowUpRight, Users, Building2,
-  Globe, Calendar, Activity,
+  Globe, Calendar, Activity, BarChart2, FileText, Plug,
+  Bell, MessageSquare, Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -55,6 +56,13 @@ function useCampaigns(clientId: string) {
   return useQuery<CampaignsListResponse>({
     queryKey: ["campaigns", clientId],
     queryFn: () => api.get<CampaignsListResponse>(`/clients/${clientId}/campaigns`, { params: { limit: 100 } }).then((r) => r.data),
+  });
+}
+
+function useClientActivity(clientId: string) {
+  return useQuery<{ id: string; action: string; time: string; type: string }[]>({
+    queryKey: ["clientActivity", clientId],
+    queryFn: () => api.get<{ id: string; action: string; time: string; type: string }[]>(`/clients/${clientId}/activity`).then((r) => r.data),
   });
 }
 
@@ -341,8 +349,11 @@ export default function ClientDetailPage() {
   const [deletingId, setDeletingId]     = useState<string | null>(null);
 
   const canEdit = useHasRole("AGENCY_ADMIN");
+  const [activityPage, setActivityPage] = useState(1);
+
   const { data: client, isLoading: clientLoading } = useClient(clientId!);
   const { data: campaignData, isLoading: campaignsLoading } = useCampaigns(clientId!);
+  const { data: activityData, isLoading: activityLoading } = useClientActivity(clientId!);
   const deleteCampaign = useDeleteCampaign(clientId!);
 
   const campaigns = campaignData?.data ?? [];
@@ -380,8 +391,27 @@ export default function ClientDetailPage() {
 
   const isActive = client.status === 'ACTIVE';
 
+  // Calculate Roll-Up Metrics
+  const totalIntegrations = campaigns.reduce((acc, c) => acc + (c._count?.integrationConnections || 0), 0);
+  const totalDashboards = campaigns.reduce((acc, c) => acc + (c._count?.dashboards || 0), 0);
+  const totalReports = campaigns.reduce((acc, c) => acc + (c._count?.reports || 0), 0);
+
+  // Calculate Pulse Score (0-100)
+  const calculatePulse = () => {
+    if (campaigns.length === 0) return 0;
+    let score = 0;
+    campaigns.forEach(c => {
+      if (c.status === 'ACTIVE') score += 100;
+      else if (c.status === 'PAUSED') score += 50;
+    });
+    return Math.round(score / campaigns.length);
+  };
+  const pulseScore = calculatePulse();
+  const pulseCircumference = 2 * Math.PI * 38;
+  const pulseOffset = pulseCircumference - (pulseScore / 100) * pulseCircumference;
+
   return (
-    <div className="p-5 lg:p-7 space-y-6 pb-12 max-w-[1400px] mx-auto">
+    <div className="p-5 lg:p-7 space-y-6 pb-12 max-w-[1600px] mx-auto">
       {/* Breadcrumb */}
       <motion.nav
         initial={{ opacity: 0, y: -6 }}
@@ -394,217 +424,367 @@ export default function ClientDetailPage() {
         <span className="text-foreground font-semibold">{client.name}</span>
       </motion.nav>
 
-      {/* Client hero card */}
+      {/* Client Hero Command Center (Full Width) */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden"
+        className="bg-white rounded-2xl overflow-hidden w-full animate-in fade-in slide-in-from-top-4"
         style={{ border: '1px solid #ECECE6' }}
       >
-        {/* Dark header strip */}
-        <div className="px-6 pt-6 pb-5" style={{ background: '#0F0D1F', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex items-start gap-4 flex-wrap">
-            <div
-              className="size-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg shrink-0"
-              style={{ background: 'linear-gradient(135deg, #5B47E0, #8B5CF6)' }}
-            >
-              {client.name.charAt(0).toUpperCase()}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="font-heading font-bold text-xl text-white tracking-tight">{client.name}</h1>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                  style={isActive
-                    ? { background: 'rgba(16,217,160,0.18)', color: '#10D9A0' }
-                    : { background: 'rgba(156,163,175,0.15)', color: '#9CA3AF' }
-                  }
+            {/* Top section with client details and pulse score */}
+            <div className="px-6 py-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden bg-[#0A0A0A]">
+              {/* Premium dark mesh background */}
+              <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(circle at 0% 0%, #2e1065 0%, transparent 50%), radial-gradient(circle at 100% 100%, #172554 0%, transparent 50%)' }} />
+              <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+              
+              <div className="flex items-center gap-6 relative z-10">
+                <div
+                  className="size-[96px] rounded-2xl flex items-center justify-center text-4xl font-bold text-white shadow-2xl shrink-0 border border-white/20 relative overflow-hidden"
                 >
-                  {isActive ? 'Active' : (client.status?.toLowerCase() ?? 'inactive')}
-                </span>
-              </div>
-
-              {client.website && (
-                <a
-                  href={client.website.startsWith("http") ? client.website : `https://${client.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 mt-1 text-xs w-fit transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.45)' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#fff'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.45)'; }}
-                >
-                  <Globe className="size-3" />
-                  {client.website}
-                  <ArrowUpRight className="size-3" />
-                </a>
-              )}
-
-              <div className="flex items-center gap-5 mt-3">
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                  <Rocket className="size-3.5" style={{ color: '#5B47E0' }} />
-                  <span className="font-semibold text-white">{client._count.campaigns}</span>
-                  <span>campaign{client._count.campaigns !== 1 ? "s" : ""}</span>
+                  <div className="absolute inset-0 opacity-90" style={{ background: 'linear-gradient(135deg, #4f46e5, #ec4899)' }} />
+                  {client.logoUrl ? (
+                    <img src={client.logoUrl} alt={client.name} className="relative z-10 size-full object-cover" />
+                  ) : (
+                    <span className="relative z-10">{client.name.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                  <Users className="size-3.5" style={{ color: '#10D9A0' }} />
-                  <span className="font-semibold text-white">{client._count.staffAssignments}</span>
-                  <span>staff assigned</span>
-                </div>
-              </div>
-            </div>
 
-            {canEdit && (
-              <div className="flex items-center gap-2 shrink-0">
-                <Link
-                  to={`/clients/${clientId}/team`}
-                  className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold transition-colors"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                >
-                  <Users className="size-3.5" />
-                  Manage team
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-3 divide-x" style={{ borderColor: '#ECECE6' }}>
-          {[
-            { icon: Rocket,   color: '#5B47E0', label: 'Campaigns',    value: client._count.campaigns },
-            { icon: Users,    color: '#10D9A0', label: 'Staff',        value: client._count.staffAssignments },
-            { icon: Calendar, color: '#F5A524', label: 'Member since', value: formatDate(client.createdAt) },
-          ].map(({ icon: Icon, color, label, value }) => (
-            <div key={label} className="flex flex-col items-center py-4 gap-1">
-              <Icon className="size-4 mb-1" style={{ color }} />
-              <span className="text-sm font-bold text-foreground">{value}</span>
-              <span className="text-[11px] text-muted-foreground">{label}</span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Campaigns section */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden"
-        style={{ border: '1px solid #ECECE6' }}
-      >
-        <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg,#5B47E0,#10D9A0)' }} />
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #ECECE6' }}>
-          <div className="flex items-center gap-2">
-            <div className="size-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.10)' }}>
-              <Rocket className="size-3.5" style={{ color: '#5B47E0' }} />
-            </div>
-            <span className="font-heading font-semibold text-sm text-foreground">Campaigns</span>
-            {!campaignsLoading && (
-              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0' }}>
-                {total}
-              </span>
-            )}
-          </div>
-          {canEdit && (
-            <button
-              onClick={() => setFormOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
-            >
-              <Plus className="size-3" />
-              Add campaign
-            </button>
-          )}
-        </div>
-
-        {campaignsLoading ? (
-          <div className="space-y-px">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="size-9 rounded-xl animate-pulse bg-muted shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 w-40 animate-pulse rounded bg-muted" />
-                  <div className="h-2.5 w-24 animate-pulse rounded bg-muted" />
-                </div>
-                <div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
-              </div>
-            ))}
-          </div>
-        ) : campaigns.length === 0 ? (
-          <div className="py-16 flex flex-col items-center gap-4 text-center">
-            <div className="size-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
-              <Rocket className="size-7" style={{ color: '#5B47E0' }} />
-            </div>
-            <div>
-              <p className="font-heading font-semibold text-foreground">No campaigns yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create the first campaign for {client.name}.</p>
-            </div>
-            {canEdit && (
-              <button
-                onClick={() => setFormOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-semibold text-white"
-                style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
-              >
-                <Plus className="size-3.5" />
-                Create first campaign
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="divide-y" style={{ borderColor: '#ECECE6' }}>
-            {campaigns.map((campaign, i) => {
-              const gradient     = CAMPAIGN_GRADIENTS[i % CAMPAIGN_GRADIENTS.length];
-              const statusStyle  = STATUS_STYLES[campaign.status] ?? STATUS_STYLES['INACTIVE'];
-              return (
-                <motion.div
-                  key={campaign.id}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.04, ease: "easeOut" as const }}
-                  className="group flex items-center gap-4 px-5 py-3.5 hover:bg-[#FAFAF7] transition-colors"
-                >
-                  <div
-                    className="size-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-bold text-white"
-                    style={{ background: gradient }}
-                  >
-                    {campaign.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  <Link to={`/clients/${clientId}/campaigns/${campaign.id}`} className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-foreground truncate group-hover:text-[#5B47E0] transition-colors">
-                      {campaign.name}
-                    </p>
-                    {campaign.description && (
-                      <p className="text-xs text-muted-foreground truncate max-w-sm mx-auto">{campaign.description}</p>
-                    )}
-                  </Link>
-
-                  <div className="flex items-center gap-3 shrink-0">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="font-heading font-bold text-2xl text-white tracking-tight">{client.name}</h1>
                     <span
-                      className="text-[10px] font-bold px-2 py-1 rounded-xl"
-                      style={{ background: statusStyle.bg, color: statusStyle.color, border: statusStyle.border }}
+                      className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-white/10"
+                      style={isActive
+                        ? { background: 'rgba(16,217,160,0.18)', color: '#10D9A0' }
+                        : { background: 'rgba(156,163,175,0.15)', color: '#9CA3AF' }
+                      }
                     >
-                      {statusStyle.label}
+                      {isActive ? 'Active' : (client.status?.toLowerCase() ?? 'inactive')}
                     </span>
-                    <span className="text-xs text-muted-foreground hidden sm:block">{formatDate(campaign.createdAt)}</span>
-                    {canEdit && (
-                      <CampaignMenu
-                        campaign={campaign}
-                        clientId={clientId!}
-                        onEdit={() => setEditingCampaign(campaign)}
-                        onDelete={() => setDeletingId(campaign.id)}
-                      />
+                  </div>
+
+                  {client.website && (
+                    <a
+                      href={client.website.startsWith("http") ? client.website : `https://${client.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 mt-1 text-xs w-fit transition-colors group"
+                      style={{ color: 'rgba(255,255,255,0.45)' }}
+                    >
+                      <Globe className="size-3.5 group-hover:text-white transition-colors" />
+                      <span className="group-hover:text-white transition-colors">{client.website}</span>
+                      <ArrowUpRight className="size-3 group-hover:text-white transition-colors" />
+                    </a>
+                  )}
+
+                  {canEdit && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <Link
+                        to={`/clients/${clientId}/team`}
+                        className="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/10"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                      >
+                        <Users className="size-3" />
+                        Manage Team
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pulse Score Gauge */}
+              <div className="flex items-center gap-5 shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-2xl relative z-10">
+                <div className="relative size-20 flex items-center justify-center">
+                  <svg className="size-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50" cy="50" r="38"
+                      fill="transparent"
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="50" cy="50" r="38"
+                      fill="transparent"
+                      stroke={pulseScore >= 80 ? "#10D9A0" : pulseScore >= 50 ? "#F5A524" : "#f43f5e"}
+                      strokeWidth="8"
+                      strokeDasharray={pulseCircumference}
+                      strokeDashoffset={pulseOffset}
+                      strokeLinecap="round"
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-xl font-bold text-white tracking-tight">{pulseScore}</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-0.5 max-w-[100px]">
+                  <span className="text-sm font-bold text-white">Client Pulse</span>
+                  <span className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Based on active campaigns & integrations
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Roll-Up Stats Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0" style={{ borderColor: '#ECECE6' }}>
+              {[
+                { icon: Rocket, color: '#5B47E0', label: 'Total Campaigns', value: client._count.campaigns },
+                { icon: Plug, color: '#F5A524', label: 'Connected Integrations', value: totalIntegrations },
+                { icon: BarChart2, color: '#10D9A0', label: 'Active Dashboards', value: totalDashboards },
+                { icon: FileText, color: '#0ea5e9', label: 'Automated Reports', value: totalReports },
+              ].map(({ icon: Icon, color, label, value }) => (
+                <div key={label} className="flex items-center gap-4 px-6 py-5">
+                  <div className="size-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+                    <Icon className="size-5" style={{ color }} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-bold text-foreground leading-none mb-1">{value}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Two-Column Layout below Hero Card */}
+          <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
+            {/* LEFT COLUMN: Campaigns */}
+            <div className="flex-1 w-full space-y-6">
+              <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading font-bold text-lg text-foreground flex items-center gap-2">
+                Campaigns
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                  {total}
+                </span>
+              </h2>
+              {canEdit && (
+                <button
+                  onClick={() => setFormOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
+                >
+                  <Plus className="size-4" />
+                  Add Campaign
+                </button>
+              )}
+            </div>
+
+            {campaignsLoading ? (
+              <div className="grid grid-cols-1 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl p-5 border border-[#ECECE6] animate-pulse h-24" />
+                ))}
+              </div>
+            ) : campaigns.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#ECECE6] py-16 flex flex-col items-center gap-4 text-center">
+                <div className="size-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
+                  <Rocket className="size-7" style={{ color: '#5B47E0' }} />
+                </div>
+                <div>
+                  <p className="font-heading font-semibold text-foreground">No campaigns yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Create the first campaign for {client.name}.</p>
+                </div>
+                {canEdit && (
+                  <button
+                    onClick={() => setFormOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-semibold text-white"
+                    style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
+                  >
+                    <Plus className="size-3.5" />
+                    Create first campaign
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {campaigns.map((campaign, i) => {
+                  const gradient = CAMPAIGN_GRADIENTS[i % CAMPAIGN_GRADIENTS.length];
+                  const statusStyle = STATUS_STYLES[campaign.status] ?? STATUS_STYLES['INACTIVE'];
+                  return (
+                    <motion.div
+                      key={campaign.id}
+                      initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.05, ease: "easeOut" }}
+                      className="group bg-white rounded-2xl p-5 hover:shadow-lg transition-all duration-300 relative border border-[#ECECE6] hover:border-primary/40 flex flex-col lg:flex-row lg:items-center justify-between gap-5"
+                    >
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="size-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0" style={{ background: gradient }}>
+                          {campaign.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link to={`/clients/${clientId}/campaigns/${campaign.id}`} className="group/link flex flex-col">
+                            <h3 className="font-bold text-foreground text-[16px] group-hover/link:text-primary transition-colors line-clamp-1 leading-tight mb-1">
+                              {campaign.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {campaign.description || 'No description provided'}
+                            </p>
+                          </Link>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5 shrink-0 items-center">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                          <BarChart2 className="size-3.5 text-emerald-500" />
+                          <span className="text-[11px] font-semibold text-muted-foreground">Dashboards</span>
+                          <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.dashboards || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                          <FileText className="size-3.5 text-sky-500" />
+                          <span className="text-[11px] font-semibold text-muted-foreground">Reports</span>
+                          <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.reports || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                          <Plug className="size-3.5 text-orange-500" />
+                          <span className="text-[11px] font-semibold text-muted-foreground">Integrations</span>
+                          <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.integrationConnections || 0}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between lg:justify-end gap-3 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#ECECE6]/60">
+                        <span
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wide"
+                          style={{ background: statusStyle.bg, color: statusStyle.color, border: statusStyle.border }}
+                        >
+                          {statusStyle.label}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/clients/${clientId}/campaigns/${campaign.id}`}
+                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-[#FAFAF7] hover:bg-[#ECECE6] text-foreground transition-colors border border-[#ECECE6] flex items-center gap-1"
+                          >
+                            Open
+                            <ChevronRight className="size-3" />
+                          </Link>
+
+                          {canEdit && (
+                            <CampaignMenu
+                              campaign={campaign}
+                              clientId={clientId!}
+                              onEdit={() => setEditingCampaign(campaign)}
+                              onDelete={() => setDeletingId(campaign.id)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Global Activity Feed */}
+        <div className="w-full xl:w-80 shrink-0">
+          <div className="bg-white rounded-2xl border border-[#ECECE6] overflow-hidden sticky top-6">
+            <div className="px-5 py-4 border-b border-[#ECECE6] flex items-center gap-2 bg-[#FAFAF7]/50">
+              <Activity className="size-4 text-primary" />
+              <h3 className="font-heading font-semibold text-sm text-foreground">Global Activity</h3>
+            </div>
+            
+            <div className="p-5">
+              {activityLoading ? (
+                <div className="space-y-6">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="flex gap-3 animate-pulse">
+                      <div className="size-6 rounded-full bg-muted shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-muted rounded w-3/4" />
+                        <div className="h-2 bg-muted rounded w-1/4" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !activityData || activityData.length === 0 ? (
+                <div className="py-8 text-center flex flex-col items-center">
+                  <Clock className="size-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-sm font-medium text-foreground">No recent activity</p>
+                  <p className="text-xs text-muted-foreground mt-1">Actions across all campaigns will appear here.</p>
+                </div>
+              ) : (() => {
+                const itemsPerPage = 5;
+                const paginatedActivity = activityData.slice((activityPage - 1) * itemsPerPage, activityPage * itemsPerPage);
+                const totalPages = Math.ceil(activityData.length / itemsPerPage);
+
+                return (
+                  <div className="space-y-5">
+                    <div className="space-y-7 relative py-2 px-1">
+                      {/* Vertical line connecting timeline */}
+                      {paginatedActivity.length > 1 && (
+                        <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-100 rounded-full" />
+                      )}
+                      
+                      {paginatedActivity.map((activity) => {
+                        let formattedAction = activity.action;
+                        let campaignBadge = null;
+                        const match = activity.action.match(/^\[(.*?)\] (.*)$/);
+                        if (match) {
+                          campaignBadge = match[1];
+                          formattedAction = match[2];
+                        }
+
+                        return (
+                          <div key={activity.id} className="flex gap-4 relative z-10 group/activity">
+                            <div className="size-8 rounded-full bg-white flex items-center justify-center border-2 shrink-0 shadow-sm transition-transform group-hover/activity:scale-110" 
+                                 style={{ borderColor: activity.type === 'alert' ? '#f43f5e' : activity.type === 'note' ? '#0ea5e9' : activity.type === 'integration' ? '#f97316' : '#5B47E0' }}>
+                              {activity.type === 'alert' && <Bell className="size-3.5 text-rose-500" />}
+                              {activity.type === 'note' && <MessageSquare className="size-3.5 text-sky-500" />}
+                              {activity.type === 'integration' && <Plug className="size-3.5 text-orange-500" />}
+                              {activity.type !== 'alert' && activity.type !== 'note' && activity.type !== 'integration' && <Activity className="size-3.5 text-primary" />}
+                            </div>
+                            <div className="flex flex-col pt-1.5 min-w-0 pb-1">
+                              {campaignBadge && (
+                                <span className="text-[10px] font-bold text-primary mb-1 uppercase tracking-wider">
+                                  {campaignBadge}
+                                </span>
+                              )}
+                              <span className="text-[13px] font-medium text-foreground leading-snug">
+                                {formattedAction}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1.5 font-medium">
+                                <Clock className="size-3 opacity-70" />
+                                {activity.time}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t border-[#ECECE6] mt-4">
+                        <button
+                          disabled={activityPage === 1}
+                          onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          Page {activityPage} of {totalPages}
+                        </span>
+                        <button
+                          disabled={activityPage === totalPages}
+                          onClick={() => setActivityPage(p => Math.min(totalPages, p + 1))}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
+                        >
+                          Next
+                        </button>
+                      </div>
                     )}
                   </div>
-                </motion.div>
-              );
-            })}
+                );
+              })()}
+            </div>
           </div>
-        )}
-      </motion.div>
+        </div>
+      </div>
 
       {/* Modals */}
       <AnimatePresence>

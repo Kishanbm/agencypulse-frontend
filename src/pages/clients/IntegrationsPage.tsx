@@ -193,6 +193,250 @@ function PlatformLogo({ platform, size = 52 }: { platform: PlatformEntry; size?:
   );
 }
 
+// ─── Integration Card ─────────────────────────────────────────────────────────
+
+function IntegrationCard({
+  platform,
+  index,
+  connection,
+  canManage,
+  isPendingAuth,
+  isPendingSync,
+  onConnectOAuth,
+  onConnectApiKey,
+  onSync,
+  onDisconnect,
+  isFlipped,
+  onToggleFlip,
+}: {
+  platform: PlatformEntry;
+  index: number;
+  connection?: IntegrationConnection;
+  canManage: boolean;
+  isPendingAuth: boolean;
+  isPendingSync: boolean;
+  onConnectOAuth: (slug: string, requiresShopDomain?: boolean) => void;
+  onConnectApiKey: (platform: PlatformEntry) => void;
+  onSync: (key: string) => void;
+  onDisconnect: (key: string, name: string) => void;
+  isFlipped: boolean;
+  onToggleFlip: () => void;
+}) {
+
+
+  const status = connection?.status ?? "DISCONNECTED";
+  const isConn = status === "CONNECTED";
+  const isError = status === "ERROR";
+
+  return (
+    <div 
+      className="relative" 
+      style={{ perspective: "1000px" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0, rotateY: isFlipped ? 180 : 0 }}
+        transition={{ duration: 0.4, delay: Math.min(index * 0.015, 0.3), ease: 'easeOut' as const }}
+        className="relative w-full h-[160px]"
+        style={{ transformStyle: "preserve-3d" }}
+      >
+        {/* FRONT FACE */}
+        <div 
+          onClick={onToggleFlip}
+          className="absolute inset-0 flex flex-col bg-white rounded-none overflow-hidden cursor-pointer"
+          style={{
+            backfaceVisibility: "hidden",
+            border: isConn
+              ? '1px solid rgba(16,217,160,0.35)'
+              : isError
+              ? '1px solid rgba(244,63,94,0.28)'
+              : '1px solid #ECECE6',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}
+        >
+          {/* Top-right corner dot */}
+          {(isConn || isError) && (
+            <div className="absolute top-3 right-3">
+              <div
+                className="size-5 rounded-full flex items-center justify-center"
+                style={{
+                  background: isConn ? 'rgba(16,217,160,0.15)' : 'rgba(244,63,94,0.12)',
+                }}
+              >
+                {isConn
+                  ? <CheckCircle2 className="size-3" style={{ color: '#10D9A0' }} />
+                  : <AlertCircle className="size-3" style={{ color: '#f43f5e' }} />
+                }
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-row items-center gap-5 p-5 h-full">
+            {/* Logo — large and prominent on left */}
+            <div className="flex-shrink-0 flex items-center justify-center">
+              <PlatformLogo platform={platform} size={72} />
+            </div>
+
+            {/* Content right */}
+            <div className="flex flex-col flex-1 min-w-0 justify-center">
+              <h3 className="font-semibold text-base text-foreground leading-tight truncate">
+                {platform.name}
+              </h3>
+              
+              {/* Sync Status */}
+              <div className="mt-1 h-[20px]">
+                {isConn && connection ? (
+                  connection.lastSyncAt ? (
+                    <div className="flex items-center gap-1 text-[11px] font-medium" style={{ color: '#059669' }}>
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      <span className="truncate">
+                        Synced {formatDistanceToNow(new Date(connection.lastSyncAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#10D9A0' }}>
+                      <RefreshCw className="size-3.5 animate-spin shrink-0" />
+                      <span>Syncing...</span>
+                    </div>
+                  )
+                ) : isError && connection?.lastErrorMessage ? (
+                  <div className="text-[11px] font-medium truncate" style={{ color: '#f43f5e' }}>
+                    {connection.lastErrorMessage}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {platform.authLabel}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-3 flex gap-2 w-full" onClick={(e) => e.stopPropagation()}>
+                {canManage && (
+                  <>
+                    {!isConn ? (
+                      <button
+                        onClick={() => {
+                          if (platform.authType === "OAUTH") {
+                            onConnectOAuth(platform.slug, platform.requiresShopDomain);
+                          } else {
+                            onConnectApiKey(platform);
+                          }
+                        }}
+                        disabled={isPendingAuth}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                        style={isError ? {
+                          background: 'rgba(244,63,94,0.1)',
+                          color: '#f43f5e',
+                          border: '1px solid rgba(244,63,94,0.25)',
+                        } : {
+                          background: 'rgba(91,71,224,0.08)',
+                          color: '#5B47E0',
+                          border: '1px solid rgba(91,71,224,0.2)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = isError 
+                            ? 'rgba(244,63,94,0.15)' 
+                            : 'rgba(91,71,224,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = isError 
+                            ? 'rgba(244,63,94,0.1)' 
+                            : 'rgba(91,71,224,0.08)';
+                        }}
+                      >
+                        {isPendingAuth ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : isError ? (
+                          <RefreshCw className="size-3" />
+                        ) : (
+                          <Zap className="size-3" />
+                        )}
+                        {isError ? "Reconnect" : "Connect"}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => onSync(platform.key)}
+                          disabled={isPendingSync}
+                          className="flex-[2] inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                          style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.2)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.15)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.08)'; }}
+                        >
+                          {isPendingSync ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+                          Sync
+                        </button>
+                        <button
+                          onClick={() => onDisconnect(platform.key, platform.name)}
+                          className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-medium transition-all"
+                          style={{ color: 'var(--muted-foreground)', border: '1px solid #ECECE6', background: 'transparent' }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(244,63,94,0.35)';
+                            e.currentTarget.style.color = '#f43f5e';
+                            e.currentTarget.style.background = 'rgba(244,63,94,0.05)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#ECECE6';
+                            e.currentTarget.style.color = 'var(--muted-foreground)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <Unplug className="size-3" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+                {!canManage && !isConn && (
+                  <div
+                    className="w-full flex items-center justify-center h-8 rounded-xl text-[11px] font-medium"
+                    style={{ background: 'rgba(0,0,0,0.03)', color: '#9CA3AF' }}
+                  >
+                    Not connected
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BACK FACE */}
+        <div
+          onClick={onToggleFlip}
+          className="absolute inset-0 flex flex-col bg-white rounded-none overflow-hidden cursor-pointer p-5"
+          style={{
+            backfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+            border: '1px solid #ECECE6',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+             <div className="flex items-center gap-2">
+               <PlatformLogo platform={platform} size={24} />
+               <span className="font-semibold text-sm">{platform.name}</span>
+             </div>
+             <div className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-none" style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0' }}>
+               {platform.category}
+             </div>
+          </div>
+          
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+            {platform.description || `Connect ${platform.name} to import data seamlessly and enrich your reporting dashboards.`}
+          </p>
+
+          <div className="mt-auto flex items-center justify-between">
+             <span className="text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+               Auth: {platform.authType}
+             </span>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
@@ -212,6 +456,7 @@ export default function IntegrationsPage() {
   const [youtubeChannelPicker, setYoutubeChannelPicker] = useState(false);
   const [googleAdsCustomerPicker, setGoogleAdsCustomerPicker] = useState(false);
   const [shopDomainInput, setShopDomainInput] = useState("");
+  const [flippedCardKey, setFlippedCardKey] = useState<string | null>(null);
 
   const queryKey = ["integrations", campaignId];
 
@@ -300,6 +545,27 @@ export default function IntegrationsPage() {
     return connections.find((c) => c.platform === platformKey);
   }
 
+  const { data: agency } = useQuery<any>({
+    queryKey: ["agency", "me"],
+    queryFn: () => api.get("/agencies/me").then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const servicesParam = searchParams.get("services");
+  const urlServices = useMemo(() => servicesParam ? servicesParam.split(',') : [], [servicesParam]);
+
+  // Automatically select the first interest/service as the active category if none is selected yet
+  useEffect(() => {
+    const preferences = urlServices.length > 0 ? urlServices : agency?.interests;
+    if (preferences?.length > 0 && activeCategory === "ALL" && !search) {
+      const firstPref = preferences[0];
+      // Only set if it's a valid category
+      if (PLATFORM_CATEGORY_FILTERS.some(f => f.value === firstPref)) {
+        setActiveCategory(firstPref as PlatformCategoryFilter);
+      }
+    }
+  }, [agency?.interests, urlServices]);
+
   const filtered = useMemo(() => {
     let list = PLATFORM_CATALOG;
     if (activeCategory !== "ALL") {
@@ -319,10 +585,21 @@ export default function IntegrationsPage() {
       const sa = connectionFor(a.key)?.status ?? "DISCONNECTED";
       const sb = connectionFor(b.key)?.status ?? "DISCONNECTED";
       const rank = (s: string) => (s === "CONNECTED" ? 0 : s === "ERROR" ? 1 : 2);
+      
       if (rank(sa) !== rank(sb)) return rank(sa) - rank(sb);
+      
+      const preferences = urlServices.length > 0 ? urlServices : agency?.interests;
+      if (rank(sa) === 2 && preferences) {
+        const aMatches = preferences.includes(a.category) || (a.altCategories?.some(c => preferences.includes(c)) ?? false);
+        const bMatches = preferences.includes(b.category) || (b.altCategories?.some(c => preferences.includes(c)) ?? false);
+        
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+      }
+      
       return a.name.localeCompare(b.name);
     });
-  }, [activeCategory, search, connections]);
+  }, [activeCategory, search, connections, agency?.interests, urlServices]);
 
   const connectedCount = connections.filter((c) => c.status === "CONNECTED").length;
   const errorCount     = connections.filter((c) => c.status === "ERROR").length;
@@ -482,199 +759,36 @@ export default function IntegrationsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, ease: 'easeOut' as const }}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
         >
           {filtered.map((platform, i) => {
             const conn      = connectionFor(platform.key);
             const status    = conn?.status ?? "DISCONNECTED";
-            const isConn    = status === "CONNECTED";
-            const isError   = status === "ERROR";
             const isPending = connectOAuthMutation.isPending && connectOAuthMutation.variables?.slug === platform.slug;
 
             return (
-              <motion.div
+              <IntegrationCard
                 key={platform.key}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: Math.min(i * 0.015, 0.3), ease: 'easeOut' as const }}
-                className="relative flex flex-col bg-white rounded-2xl overflow-hidden"
-                style={{
-                  border: isConn
-                    ? '1px solid rgba(16,217,160,0.35)'
-                    : isError
-                    ? '1px solid rgba(244,63,94,0.28)'
-                    : '1px solid #ECECE6',
-                  boxShadow: isConn
-                    ? '0 0 0 3px rgba(16,217,160,0.08), 0 2px 10px rgba(0,0,0,0.05)'
-                    : '0 2px 8px rgba(0,0,0,0.04)',
+                platform={platform}
+                index={i}
+                connection={conn}
+                canManage={canManage}
+                isPendingAuth={isPending}
+                isPendingSync={syncNowMutation.isPending && syncNowMutation.variables === platform.key}
+                isFlipped={flippedCardKey === platform.key}
+                onToggleFlip={() => setFlippedCardKey(flippedCardKey === platform.key ? null : platform.key)}
+                onConnectOAuth={(slug, requiresShopDomain) => {
+                  if (requiresShopDomain) {
+                    setShopDomainInput("");
+                    setShopDomainTarget(platform);
+                  } else {
+                    connectOAuthMutation.mutate({ slug });
+                  }
                 }}
-              >
-                {/* Top accent */}
-                {(isConn || isError) && (
-                  <div
-                    className="h-[3px] w-full flex-shrink-0"
-                    style={{
-                      background: isConn
-                        ? 'linear-gradient(90deg,#10D9A0,#34d399)'
-                        : 'linear-gradient(90deg,#f43f5e,#fb7185)',
-                    }}
-                  />
-                )}
-
-                {/* Status dot — top-right corner only */}
-                {(isConn || isError) && (
-                  <div className="absolute top-3 right-3">
-                    <div
-                      className="size-5 rounded-full flex items-center justify-center"
-                      style={{
-                        background: isConn ? 'rgba(16,217,160,0.15)' : 'rgba(244,63,94,0.12)',
-                      }}
-                    >
-                      {isConn
-                        ? <CheckCircle2 className="size-3" style={{ color: '#10D9A0' }} />
-                        : <AlertCircle className="size-3" style={{ color: '#f43f5e' }} />
-                      }
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col items-center gap-2.5 p-5 pb-4 flex-1">
-                  {/* Logo — centered */}
-                  <div className="flex items-center justify-center w-full mt-1 mb-1">
-                    <PlatformLogo platform={platform} size={60} />
-                  </div>
-
-                  {/* Name + auth — centered */}
-                  <div className="w-full text-center min-w-0">
-                    <p className="font-semibold text-sm text-foreground leading-tight truncate px-2">
-                      {platform.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                      {platform.authLabel}
-                    </p>
-                  </div>
-
-                  {/* Sync state — below name, no overlap */}
-                  {isConn && conn && (
-                    conn.lastSyncAt ? (
-                      <div className="flex items-center gap-1 text-[10px] font-medium" style={{ color: '#059669' }}>
-                        <CheckCircle2 className="size-3 shrink-0" />
-                        <span className="truncate max-w-[120px]">
-                          {formatDistanceToNow(new Date(conn.lastSyncAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#10D9A0' }}>
-                        <RefreshCw className="size-3 animate-spin shrink-0" />
-                        <span>Syncing</span>
-                      </div>
-                    )
-                  )}
-
-                  {isError && conn?.lastErrorMessage && (
-                    <div
-                      className="w-full rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed line-clamp-2 text-center"
-                      style={{ background: 'rgba(244,63,94,0.06)', color: '#f43f5e' }}
-                    >
-                      {conn.lastErrorMessage}
-                    </div>
-                  )}
-
-                  {/* Action — pinned to bottom */}
-                  {canManage && (
-                    <div className="w-full mt-auto pt-1">
-                      {!isConn ? (
-                        <button
-                          onClick={() => {
-                            if (platform.authType === "OAUTH") {
-                              if (platform.requiresShopDomain) {
-                                setShopDomainInput("");
-                                setShopDomainTarget(platform);
-                              } else {
-                                connectOAuthMutation.mutate({ slug: platform.slug });
-                              }
-                            } else {
-                              setApiKeyTarget(platform);
-                            }
-                          }}
-                          disabled={isPending}
-                          className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
-                          style={isError ? {
-                            background: 'rgba(244,63,94,0.07)',
-                            color: '#f43f5e',
-                            border: '1px solid rgba(244,63,94,0.22)',
-                          } : {
-                            background: 'rgba(91,71,224,0.07)',
-                            color: '#5B47E0',
-                            border: '1px solid rgba(91,71,224,0.20)',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = isError
-                              ? 'rgba(244,63,94,0.13)'
-                              : 'rgba(91,71,224,0.14)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = isError
-                              ? 'rgba(244,63,94,0.07)'
-                              : 'rgba(91,71,224,0.07)';
-                          }}
-                        >
-                          {isPending ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : isError ? (
-                            <RefreshCw className="size-3" />
-                          ) : (
-                            <Zap className="size-3" />
-                          )}
-                          {isError ? "Reconnect" : "Connect"}
-                        </button>
-                      ) : (
-                        <div className="flex gap-1.5 w-full">
-                          <button
-                            onClick={() => syncNowMutation.mutate(platform.key)}
-                            disabled={syncNowMutation.isPending && syncNowMutation.variables === platform.key}
-                            className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
-                            style={{ background: 'rgba(91,71,224,0.07)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.20)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.14)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.07)'; }}
-                          >
-                            {syncNowMutation.isPending && syncNowMutation.variables === platform.key
-                              ? <Loader2 className="size-3 animate-spin" />
-                              : <RefreshCw className="size-3" />}
-                            Sync
-                          </button>
-                          <button
-                            onClick={() => setDisconnectTarget({ platformKey: platform.key, name: platform.name })}
-                            className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-medium transition-all"
-                            style={{ color: 'var(--muted-foreground)', border: '1px solid #ECECE6' }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = 'rgba(244,63,94,0.35)';
-                              e.currentTarget.style.color = '#f43f5e';
-                              e.currentTarget.style.background = 'rgba(244,63,94,0.04)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = '#ECECE6';
-                              e.currentTarget.style.color = 'var(--muted-foreground)';
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                          >
-                            <Unplug className="size-3" />
-                            Disconnect
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!canManage && !isConn && (
-                    <div
-                      className="w-full mt-auto pt-1 flex items-center justify-center h-8 rounded-xl text-[11px] font-medium"
-                      style={{ background: 'rgba(0,0,0,0.03)', color: '#9CA3AF' }}
-                    >
-                      Not connected
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                onConnectApiKey={(plat) => setApiKeyTarget(plat)}
+                onSync={(key) => syncNowMutation.mutate(key)}
+                onDisconnect={(key, name) => setDisconnectTarget({ platformKey: key, name })}
+              />
             );
           })}
         </motion.div>

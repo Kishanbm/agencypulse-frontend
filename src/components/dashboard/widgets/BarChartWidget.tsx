@@ -66,7 +66,7 @@ export function BarChartWidget({
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={safeData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+      <BarChart data={safeData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }} barCategoryGap="20%">
         <CartesianGrid stroke="#CBD5E1" strokeOpacity={0.7} strokeDasharray="3 3" strokeWidth={1} />
         <XAxis
           dataKey="name"
@@ -104,7 +104,7 @@ export function BarChartWidget({
             radius={[4, 4, 0, 0]}
             isAnimationActive={false}
             name={bar.label}
-            maxBarSize={48}
+            maxBarSize={80}
           />
         ))}
       </BarChart>

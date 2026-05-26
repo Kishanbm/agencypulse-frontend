@@ -36,7 +36,7 @@ export function useDashboardData({
     error,
     refetch,
   } = useQuery({
-    queryKey: ["dashboardData", campaignId, dashboardId, from, to],
+    queryKey: ["dashboardData", campaignId, dashboardId, from, to, [...widgetIds].sort().join(",")],
     queryFn: async () => {
       const response = await api.post<DashboardDataResponse>(
         `/campaigns/${campaignId}/dashboards/${dashboardId}/widgets/data`,

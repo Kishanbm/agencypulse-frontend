@@ -275,17 +275,7 @@ export function DashboardViewer() {
         {/* ── Main content area ── */}
         <div
           className="px-5 lg:px-7 py-8 min-h-[calc(100vh-120px)] relative"
-          style={{
-            backgroundColor: "#EDECEA",
-            backgroundImage: `
-              linear-gradient(45deg, rgba(255,255,255,0.55) 25%, transparent 25%),
-              linear-gradient(-45deg, rgba(255,255,255,0.55) 25%, transparent 25%),
-              linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
-              linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%)
-            `,
-            backgroundSize: "80px 80px",
-            backgroundPosition: "0 0, 0 40px, 40px -40px, -40px 0px",
-          }}
+          style={{ backgroundColor: "#F4F4F0" }}
         >
 
         {/* Widget data 403 warning */}

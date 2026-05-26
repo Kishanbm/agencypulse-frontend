@@ -36,8 +36,20 @@ export function WidgetRenderer({
 
   switch (widget.widgetType) {
     case "KPI": {
+      const kpiLabel = widget.config?.title || (widget.metricKeys?.[0] ?? "").replace(/_/g, " ");
       if (isLoading) return <WidgetSkeleton type="kpi" />;
-      if (!widgetData?.data) return <WidgetEmptyState message="No data for selected range" />;
+
+      if (!widgetData?.data) {
+        return (
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground truncate leading-none">
+              {kpiLabel}
+            </p>
+            <p className="text-[28px] font-extrabold leading-none tracking-tight" style={{ color: "rgba(0,0,0,0.12)" }}>—</p>
+            <span className="text-[11px] text-muted-foreground/40 leading-none">No data</span>
+          </div>
+        );
+      }
 
       const kpiData = widgetData.data as Record<string, unknown>;
       const rawCurrent = kpiData.current as Record<string, unknown> | undefined;
@@ -46,7 +58,17 @@ export function WidgetRenderer({
       const previous = (rawPrevious?.metrics ?? rawPrevious ?? {}) as Record<string, number>;
 
       const firstMetric = Object.keys(current).find((k) => typeof current[k] === "number");
-      if (!firstMetric) return <WidgetEmptyState message="No data for selected range" />;
+      if (!firstMetric) {
+        return (
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground truncate leading-none">
+              {kpiLabel}
+            </p>
+            <p className="text-[28px] font-extrabold leading-none tracking-tight" style={{ color: "rgba(0,0,0,0.12)" }}>—</p>
+            <span className="text-[11px] text-muted-foreground/40 leading-none">No data</span>
+          </div>
+        );
+      }
 
       const currentValue = current[firstMetric];
       const previousValue = previous[firstMetric] ?? 0;
@@ -59,9 +81,12 @@ export function WidgetRenderer({
 
       return (
         <KPIWidget
-          label={widget.config?.title || firstMetric}
+          label={kpiLabel}
           value={formatValue(currentValue, firstMetric)}
           trend={trend}
+          labelColor={widget.config?.headerTextColor}
+          valueColor={widget.config?.bodyTextColor}
+          hideLabel
         />
       );
     }

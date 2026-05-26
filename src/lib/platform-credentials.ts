@@ -252,7 +252,12 @@ export const CREDENTIAL_SCHEMAS: Record<string, CredentialSchema> = {
     ],
     buildPayload: (v) => ({ apiKey: v.apiKey, externalAccountId: v.businessId }),
   },
-  GATHERUP: tierA('API Key', 'Enter your GatherUp API key'),
+  GATHERUP: tierBId(
+    'Bearer Token',
+    'Client ID',
+    'Your GatherUp Client ID (hash string from API Credentials page)',
+    'Found in GatherUp → Settings → API Credentials',
+  ),
   GRADE_US: tierA('API Key', 'Enter your Grade.us API key'),
   SYNUP: tierA('API Key', 'Enter your Synup API key'),
   // ─── Database / Warehouse ─────────────────────────────────────────────────

@@ -115,12 +115,18 @@ export function useDashboardEdit({ campaignId, dashboardId }: UseDashboardEditPr
     setIsSaving(true);
     try {
       for (const w of changed) {
+        // Normalize aggregation/comparison to lowercase — DB may store legacy uppercase values
+        const config = w.config ? {
+          ...w.config,
+          ...(w.config.aggregation ? { aggregation: w.config.aggregation.toLowerCase() as typeof w.config.aggregation } : {}),
+          ...(w.config.comparison  ? { comparison:  w.config.comparison.toLowerCase()  as typeof w.config.comparison  } : {}),
+        } : w.config;
         await api.patch(
           `/campaigns/${campaignId}/dashboards/${dashboardId}/widgets/${w.id}`,
           {
             platform: w.platform,
             metricKeys: w.metricKeys,
-            config: w.config,
+            config,
             position: w.position,
           }
         );
@@ -128,8 +134,9 @@ export function useDashboardEdit({ campaignId, dashboardId }: UseDashboardEditPr
 
       // Snapshot the saved state
       setOriginalWidgets(structuredClone(editedWidgets));
-      // Invalidate dashboard query so viewer re-fetches fresh data
+      // Invalidate both queries: widget structure + widget data (metrics may have changed)
       await queryClient.invalidateQueries({ queryKey: ["dashboard", campaignId, dashboardId] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboardData", campaignId, dashboardId] });
       setEditMode(false);
       setSelectedWidgetId(null);
     } finally {
