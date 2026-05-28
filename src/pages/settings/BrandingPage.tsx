@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Upload, Loader2, Palette, Globe, Mail,
-  Image as ImageIcon, Save,
+  Image as ImageIcon, Save, Sparkles, Paintbrush
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getApiClient } from "@/lib/api";
@@ -52,47 +52,15 @@ function extractMessage(err: unknown): string {
   return "Failed to save branding";
 }
 
-function SectionCard({
-  icon: Icon,
-  iconColor,
-  iconBg,
-  title,
-  description,
-  children,
-  delay = 0,
-}: {
-  icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: "easeOut" as const }}
-      className="bg-white rounded-2xl overflow-hidden"
-      style={{ border: "1px solid #ECECE6" }}
-    >
-      <div className="px-5 py-4" style={{ borderBottom: "1px solid #ECECE6" }}>
-        <div className="flex items-center gap-2">
-          <div
-            className="size-7 rounded-lg flex items-center justify-center"
-            style={{ background: iconBg }}
-          >
-            <Icon className="size-3.5" style={{ color: iconColor }} />
-          </div>
-          <h2 className="font-heading font-semibold text-sm">{title}</h2>
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground ml-9">{description}</p>
-      </div>
-      <div className="px-5 py-5">{children}</div>
-    </motion.div>
-  );
-}
+const inputStyle = { border: '1px solid #ECECE6', borderRadius: 0 };
+const onFocusSlate = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(15,23,42,0.08)';
+  e.currentTarget.style.borderColor = '#0f172a';
+};
+const onBlurReset = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+  e.currentTarget.style.boxShadow = 'none';
+  e.currentTarget.style.borderColor = '#ECECE6';
+};
 
 export default function BrandingPage() {
   const api = getApiClient();
@@ -198,12 +166,13 @@ export default function BrandingPage() {
 
   if (isLoading) {
     return (
-      <div className="p-5 lg:p-7 space-y-4 max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[1, 2].map((i) => <div key={i} className="h-52 rounded-2xl bg-muted animate-pulse" />)}
+      <div className="min-h-screen bg-slate-50 w-full flex flex-col">
+        <div className="bg-white border-b border-slate-200 py-10 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto w-full">
+          <div className="h-8 bg-slate-100 animate-pulse w-64 mb-4" />
+          <div className="h-4 bg-slate-100 animate-pulse w-96" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[3, 4].map((i) => <div key={i} className="h-40 rounded-2xl bg-muted animate-pulse" />)}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+          <div className="h-[600px] bg-slate-100 animate-pulse w-full border border-slate-200" />
         </div>
       </div>
     );
@@ -214,267 +183,305 @@ export default function BrandingPage() {
   const isSecondaryValid = /^#[0-9A-Fa-f]{6}$/.test(secondaryColor);
 
   return (
-    <div className="p-4 sm:p-5 lg:p-7 pb-12 max-w-5xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" as const }}
-        className="mb-6"
-      >
-        <h1 className="font-heading font-bold text-xl sm:text-2xl tracking-tight text-foreground">
-          White-label Branding
-        </h1>
-        <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-          Customise your agency's look across dashboards, reports, and the client portal.
-        </p>
-      </motion.div>
+    <div className="min-h-screen bg-slate-50 pb-16 w-full flex flex-col">
+      {/* Top Banner / Hero */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 py-10">
+            <div>
+              <h1 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight flex items-center gap-3">
+                <Paintbrush className="size-8 text-slate-800" />
+                White-label Branding
+              </h1>
+              <p className="text-slate-500 mt-2 text-lg max-w-2xl">
+                Customise your agency's look across dashboards, reports, and the client portal.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="space-y-5">
-
-        {/* Row 1: Logo+Favicon | Brand Colors — side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-          {/* Logo & Favicon */}
-          <SectionCard
-            icon={ImageIcon} iconColor="#5B47E0" iconBg="rgba(91,71,224,0.10)"
-            title="Logo & Favicon" description="Shown in the sidebar, reports, and client portal."
-            delay={0.05}
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="space-y-6">
+          
+          {/* Main Unified Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="bg-white overflow-hidden"
+            style={{ border: '1px solid #ECECE6', borderRadius: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1)' }}
           >
-            <div className="space-y-5">
-              {/* Logo row */}
-              <div className="flex items-center gap-4">
-                <div
-                  className="size-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0"
-                  style={{ border: "1px solid #ECECE6", background: "rgba(0,0,0,0.03)" }}
-                >
-                  {logoUrl ? (
-                    <img src={`${logoUrl}${cacheBust}`} alt="Agency logo" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xl font-bold text-muted-foreground">
-                      {branding?.agencyName?.charAt(0) ?? "A"}
-                    </span>
-                  )}
+            {/* Save Header Bar */}
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-[#ECECE6]">
+              <h2 className="font-heading font-semibold text-sm text-foreground flex items-center gap-2">
+                <Sparkles className="size-4 text-slate-800" />
+                Branding Preferences
+              </h2>
+              <button
+                type="submit"
+                disabled={!isDirty || !isValid || saveMutation.isPending}
+                className="inline-flex items-center gap-2 px-5 h-9 rounded-none text-sm font-semibold text-white transition-all disabled:opacity-50 hover:opacity-90 border border-slate-900 bg-slate-900"
+              >
+                {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {saveMutation.isPending ? "Saving…" : "Save Branding"}
+              </button>
+            </div>
+
+            <div className="p-6 md:p-8 space-y-12">
+              
+              {/* Logo & Colors Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                
+                {/* Logo & Favicon Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <ImageIcon className="size-4 text-slate-500" />
+                      Logo & Favicon
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Shown in the sidebar, reports, and client portal.</p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Logo row */}
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="size-16 flex items-center justify-center overflow-hidden shrink-0 rounded-lg"
+                        style={{ border: "1px solid #ECECE6", background: "rgba(0,0,0,0.02)" }}
+                      >
+                        {logoUrl ? (
+                          <img src={`${logoUrl}${cacheBust}`} alt="Agency logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xl font-bold text-slate-400">
+                            {branding?.agencyName?.charAt(0) ?? "A"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-900 uppercase tracking-wider">Agency logo</p>
+                        <p className="text-xs text-slate-500 mb-2">PNG, JPEG, SVG, or WebP. Max 2 MB.</p>
+                        <input ref={logoInputRef} type="file" accept={LOGO_ACCEPT} className="hidden" onChange={handleLogoUpload} />
+                        <button
+                          type="button"
+                          disabled={logoUploading}
+                          onClick={() => logoInputRef.current?.click()}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 h-8 text-xs font-semibold transition-colors disabled:opacity-50 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        >
+                          {logoUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
+                          {logoUploading ? "Uploading…" : "Upload logo"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-[#ECECE6] w-full" />
+
+                    {/* Favicon row */}
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="size-10 flex items-center justify-center overflow-hidden shrink-0 rounded-lg"
+                        style={{ border: "1px solid #ECECE6", background: "rgba(0,0,0,0.02)" }}
+                      >
+                        {faviconUrl ? (
+                          <img src={`${faviconUrl}${cacheBust}`} alt="Favicon" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400">ICO</span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-900 uppercase tracking-wider">Favicon</p>
+                        <p className="text-xs text-slate-500 mb-2">ICO or PNG. Max 512 KB. Tab icon.</p>
+                        <input ref={faviconInputRef} type="file" accept={FAVICON_ACCEPT} className="hidden" onChange={handleFaviconUpload} />
+                        <button
+                          type="button"
+                          disabled={faviconUploading}
+                          onClick={() => faviconInputRef.current?.click()}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 h-8 text-xs font-semibold transition-colors disabled:opacity-50 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        >
+                          {faviconUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
+                          {faviconUploading ? "Uploading…" : "Upload favicon"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1 flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Agency logo</p>
-                  <p className="text-xs text-muted-foreground">PNG, JPEG, SVG, or WebP. Max 2 MB.</p>
-                  <input ref={logoInputRef} type="file" accept={LOGO_ACCEPT} className="hidden" onChange={handleLogoUpload} />
-                  <button
-                    type="button"
-                    disabled={logoUploading}
-                    onClick={() => logoInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
-                    style={{ border: "1px solid #ECECE6", color: "#5B47E0", background: "rgba(91,71,224,0.05)" }}
-                  >
-                    {logoUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
-                    {logoUploading ? "Uploading…" : "Upload logo"}
-                  </button>
+
+                {/* Brand Colors Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Palette className="size-4 text-slate-500" />
+                      Brand Colors
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Applied across dashboards, reports, and the client portal.</p>
+                  </div>
+                  
+                  <div className="space-y-5">
+                    {/* Primary */}
+                    <div className="space-y-2">
+                      <label htmlFor="primaryColor" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Primary color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={isPrimaryValid ? primaryColor : "#3B82F6"}
+                          onChange={(e) => setValue("primaryColor", e.target.value, { shouldDirty: true, shouldValidate: true })}
+                          className="size-10 cursor-pointer border p-0.5 bg-transparent shrink-0"
+                          style={{ borderColor: "#ECECE6", borderRadius: 0 }}
+                        />
+                        <input
+                          id="primaryColor"
+                          {...register("primaryColor")}
+                          placeholder="#3B82F6"
+                          className="flex-1 font-mono h-10 text-sm px-3 outline-none bg-white transition-shadow"
+                          style={inputStyle}
+                          onFocus={onFocusSlate}
+                          onBlur={onBlurReset}
+                        />
+                      </div>
+                      {errors.primaryColor && <p className="text-xs text-red-500">{errors.primaryColor.message}</p>}
+                    </div>
+
+                    {/* Secondary */}
+                    <div className="space-y-2">
+                      <label htmlFor="secondaryColor" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Secondary color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={isSecondaryValid ? secondaryColor : "#1E40AF"}
+                          onChange={(e) => setValue("secondaryColor", e.target.value, { shouldDirty: true, shouldValidate: true })}
+                          className="size-10 cursor-pointer border p-0.5 bg-transparent shrink-0"
+                          style={{ borderColor: "#ECECE6", borderRadius: 0 }}
+                        />
+                        <input
+                          id="secondaryColor"
+                          {...register("secondaryColor")}
+                          placeholder="#1E40AF"
+                          className="flex-1 font-mono h-10 text-sm px-3 outline-none bg-white transition-shadow"
+                          style={inputStyle}
+                          onFocus={onFocusSlate}
+                          onBlur={onBlurReset}
+                        />
+                      </div>
+                      {errors.secondaryColor && <p className="text-xs text-red-500">{errors.secondaryColor.message}</p>}
+                    </div>
+
+                    {/* Preview strip */}
+                    <div className="pt-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Preview</p>
+                      <div className="flex gap-2 overflow-hidden" style={{ border: "1px solid #ECECE6", borderRadius: 0 }}>
+                        <div className="h-10 flex-1 transition-colors" style={{ background: isPrimaryValid ? primaryColor : "#3B82F6" }} title="Primary" />
+                        <div className="h-10 flex-1 transition-colors" style={{ background: isSecondaryValid ? secondaryColor : "#1E40AF" }} title="Secondary" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
               </div>
 
-              <div style={{ borderTop: "1px solid #ECECE6" }} className="pt-5">
-                {/* Favicon row */}
-                <div className="flex items-center gap-4">
-                  <div
-                    className="size-10 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
-                    style={{ border: "1px solid #ECECE6", background: "rgba(0,0,0,0.03)" }}
-                  >
-                    {faviconUrl ? (
-                      <img src={`${faviconUrl}${cacheBust}`} alt="Favicon" className="w-full h-full object-contain" />
+              <div className="h-px bg-[#ECECE6] w-full" />
+
+              {/* Domain & Email Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                
+                {/* Custom Domain Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Globe className="size-4 text-slate-500" />
+                      Custom Domain
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Serve your client portal from your own domain.</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="customDomain" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Domain
+                    </label>
+                    <input
+                      id="customDomain"
+                      {...register("customDomain")}
+                      placeholder="reports.acme.com"
+                      className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
+                      style={inputStyle}
+                      onFocus={onFocusSlate}
+                      onBlur={onBlurReset}
+                    />
+                    {errors.customDomain ? (
+                      <p className="text-xs text-red-500">{errors.customDomain.message}</p>
                     ) : (
-                      <span className="text-[9px] font-bold text-muted-foreground">ICO</span>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Add a CNAME record pointing to{" "}
+                        <code className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 text-slate-800 border border-slate-200">
+                          app.agencypulse.com
+                        </code>{" "}
+                        in your DNS settings.
+                      </p>
                     )}
                   </div>
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Favicon</p>
-                    <p className="text-xs text-muted-foreground">ICO or PNG. Max 512 KB. Updates the browser tab icon.</p>
-                    <input ref={faviconInputRef} type="file" accept={FAVICON_ACCEPT} className="hidden" onChange={handleFaviconUpload} />
-                    <button
-                      type="button"
-                      disabled={faviconUploading}
-                      onClick={() => faviconInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
-                      style={{ border: "1px solid #ECECE6", color: "#5B47E0", background: "rgba(91,71,224,0.05)" }}
-                    >
-                      {faviconUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
-                      {faviconUploading ? "Uploading…" : "Upload favicon"}
-                    </button>
+                </div>
+
+                {/* Email Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Mail className="size-4 text-slate-500" />
+                      Email Sending
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Customise the sender shown on outgoing emails (reports, alerts).</p>
+                  </div>
+                  
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <label htmlFor="emailFromName" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        From name
+                      </label>
+                      <input
+                        id="emailFromName"
+                        {...register("emailFromName")}
+                        placeholder={branding?.agencyName ?? "Your Agency"}
+                        className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
+                        style={inputStyle}
+                        onFocus={onFocusSlate}
+                        onBlur={onBlurReset}
+                      />
+                      <p className="text-xs text-slate-500">Defaults to your agency name if left blank.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="emailFromAddress" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        From address
+                      </label>
+                      <input
+                        id="emailFromAddress"
+                        type="email"
+                        {...register("emailFromAddress")}
+                        placeholder="noreply@acme.com"
+                        className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
+                        style={inputStyle}
+                        onFocus={onFocusSlate}
+                        onBlur={onBlurReset}
+                      />
+                      {errors.emailFromAddress ? (
+                        <p className="text-xs text-red-500">{errors.emailFromAddress.message}</p>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Ensure SPF and DKIM records are configured for your domain to avoid spam filtering.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </SectionCard>
 
-          {/* Brand Colors */}
-          <SectionCard
-            icon={Palette} iconColor="#FF7A59" iconBg="rgba(255,122,89,0.10)"
-            title="Brand colors" description="Applied across dashboards, reports, and the client portal."
-            delay={0.1}
-          >
-            <div className="space-y-4">
-              {/* Primary */}
-              <div className="space-y-2">
-                <label htmlFor="primaryColor" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Primary color
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={isPrimaryValid ? primaryColor : "#3B82F6"}
-                    onChange={(e) => setValue("primaryColor", e.target.value, { shouldDirty: true, shouldValidate: true })}
-                    className="size-9 rounded-xl cursor-pointer border p-0.5 bg-transparent shrink-0"
-                    style={{ borderColor: "#ECECE6" }}
-                  />
-                  <input
-                    id="primaryColor"
-                    {...register("primaryColor")}
-                    placeholder="#3B82F6"
-                    className="flex-1 font-mono rounded-xl h-9 text-sm px-3 outline-none bg-white"
-                    style={{ border: '1px solid #ECECE6' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#5B47E0'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.10)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = '#ECECE6'; e.currentTarget.style.boxShadow = 'none'; }}
-                  />
-                </div>
-                {errors.primaryColor && <p className="text-xs" style={{ color: '#f43f5e' }}>{errors.primaryColor.message}</p>}
               </div>
 
-              {/* Secondary */}
-              <div className="space-y-2">
-                <label htmlFor="secondaryColor" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Secondary color
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={isSecondaryValid ? secondaryColor : "#1E40AF"}
-                    onChange={(e) => setValue("secondaryColor", e.target.value, { shouldDirty: true, shouldValidate: true })}
-                    className="size-9 rounded-xl cursor-pointer border p-0.5 bg-transparent shrink-0"
-                    style={{ borderColor: "#ECECE6" }}
-                  />
-                  <input
-                    id="secondaryColor"
-                    {...register("secondaryColor")}
-                    placeholder="#1E40AF"
-                    className="flex-1 font-mono rounded-xl h-9 text-sm px-3 outline-none bg-white"
-                    style={{ border: '1px solid #ECECE6' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#5B47E0'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.10)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = '#ECECE6'; e.currentTarget.style.boxShadow = 'none'; }}
-                  />
-                </div>
-                {errors.secondaryColor && <p className="text-xs" style={{ color: '#f43f5e' }}>{errors.secondaryColor.message}</p>}
-              </div>
-
-              {/* Preview strip */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Preview</p>
-                <div className="flex gap-2 rounded-xl overflow-hidden" style={{ border: "1px solid #ECECE6" }}>
-                  <div className="h-10 flex-1 transition-colors" style={{ background: isPrimaryValid ? primaryColor : "#3B82F6" }} title="Primary" />
-                  <div className="h-10 flex-1 transition-colors" style={{ background: isSecondaryValid ? secondaryColor : "#1E40AF" }} title="Secondary" />
-                </div>
-              </div>
             </div>
-          </SectionCard>
-        </div>
-
-        {/* Row 2: Custom Domain | Email — side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-          {/* Custom Domain */}
-          <SectionCard
-            icon={Globe} iconColor="#10D9A0" iconBg="rgba(16,217,160,0.10)"
-            title="Custom domain" description="Serve your client portal from your own domain."
-            delay={0.15}
-          >
-          <div className="space-y-2">
-            <label htmlFor="customDomain" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Domain
-            </label>
-            <input
-              id="customDomain"
-              {...register("customDomain")}
-              placeholder="reports.acme.com"
-              className="w-full rounded-xl h-10 px-3 text-sm outline-none bg-white"
-              style={{ border: '1px solid #ECECE6' }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#5B47E0'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.10)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#ECECE6'; e.currentTarget.style.boxShadow = 'none'; }}
-            />
-            {errors.customDomain ? (
-              <p className="text-xs" style={{ color: '#f43f5e' }}>{errors.customDomain.message}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Add a CNAME record pointing to{" "}
-                <code className="px-1 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(91,71,224,0.08)", color: "#5B47E0" }}>
-                  app.agencypulse.com
-                </code>{" "}
-                in your DNS settings.
-              </p>
-            )}
-          </div>
-        </SectionCard>
-
-          {/* Email */}
-          <SectionCard
-            icon={Mail} iconColor="#F5A524" iconBg="rgba(245,165,36,0.10)"
-            title="Email sending" description="Customise the sender shown on outgoing emails — reports, invites, and alerts."
-            delay={0.2}
-        >
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="emailFromName" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                From name
-              </label>
-              <input
-                id="emailFromName"
-                {...register("emailFromName")}
-                placeholder={branding?.agencyName ?? "Your Agency"}
-                className="w-full rounded-xl h-10 px-3 text-sm outline-none bg-white"
-                style={{ border: '1px solid #ECECE6' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#5B47E0'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.10)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#ECECE6'; e.currentTarget.style.boxShadow = 'none'; }}
-              />
-              <p className="text-xs text-muted-foreground">Defaults to your agency name if left blank.</p>
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="emailFromAddress" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                From address
-              </label>
-              <input
-                id="emailFromAddress"
-                type="email"
-                {...register("emailFromAddress")}
-                placeholder="noreply@acme.com"
-                className="w-full rounded-xl h-10 px-3 text-sm outline-none bg-white"
-                style={{ border: '1px solid #ECECE6' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#5B47E0'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.10)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#ECECE6'; e.currentTarget.style.boxShadow = 'none'; }}
-              />
-              {errors.emailFromAddress ? (
-                <p className="text-xs" style={{ color: '#f43f5e' }}>{errors.emailFromAddress.message}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Ensure SPF and DKIM records are configured for your domain to avoid spam filtering.
-                </p>
-              )}
-            </div>
-          </div>
-          </SectionCard>
-        </div>
-
-        {/* Save */}
-        <div className="flex justify-end pt-1">
-          <button
-            type="submit"
-            disabled={!isDirty || !isValid || saveMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-5 h-9 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg, #111827, #1f2937)" }}
-          >
-            {saveMutation.isPending
-              ? <><Loader2 className="size-3.5 animate-spin" />Saving…</>
-              : <><Save className="size-3.5" />Save branding</>
-            }
-          </button>
-        </div>
-      </form>
+          </motion.div>
+        </form>
+      </div>
     </div>
   );
 }

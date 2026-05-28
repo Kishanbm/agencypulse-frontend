@@ -7,7 +7,7 @@ interface TableColumn {
 }
 
 interface TableRow {
-  [key: string]: string | number;
+  [key: string]: string | number | unknown;
 }
 
 interface TableWidgetProps {
@@ -96,9 +96,9 @@ export function TableWidget({
                   key={`${idx}-${col.key}`}
                   className={`px-3 py-2.5 font-medium text-foreground ${alignClass(col.align)}`}
                 >
-                  {typeof row[col.key] === "number" 
+                  {typeof row[col.key] === "number"
                     ? formatValue(row[col.key] as number, col.key)
-                    : row[col.key]}
+                    : String(row[col.key] ?? "")}
                 </td>
               ))}
             </tr>

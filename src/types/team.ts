@@ -4,6 +4,9 @@ export interface TeamMember {
   id: string;
   firstName: string;
   lastName: string;
+  jobTitle: string | null;
+  description: string | null;
+  avatarUrl: string | null;
   email: string;
   role: Role;
   isActive: boolean;

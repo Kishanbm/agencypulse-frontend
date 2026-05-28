@@ -112,7 +112,7 @@ function formatDate(iso: string) {
 }
 
 function inputFocus(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
-  e.currentTarget.style.borderColor = '#5B47E0';
+  e.currentTarget.style.borderColor = '#0F172A';
   e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.12)';
 }
 function inputBlur(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -138,7 +138,7 @@ function CampaignMenu({ campaign, clientId, onEdit, onDelete }: { campaign: Camp
     <div ref={ref} className="relative">
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-        className="size-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        className="size-7 rounded-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ background: 'rgba(0,0,0,0.04)' }}
       >
         <MoreHorizontal className="size-3.5 text-muted-foreground" />
@@ -150,7 +150,7 @@ function CampaignMenu({ campaign, clientId, onEdit, onDelete }: { campaign: Camp
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" as const }}
-            className="absolute right-0 top-9 z-50 w-44 bg-white rounded-xl overflow-hidden py-1"
+            className="absolute right-0 top-9 z-50 w-44 bg-white rounded-none overflow-hidden py-1"
             style={{ border: '1px solid #ECECE6', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
           >
             <Link
@@ -218,13 +218,13 @@ function CampaignFormModal({ clientId, campaign, onClose }: { clientId: string; 
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.97 }}
         transition={{ duration: 0.25, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden w-full max-w-md mx-auto"
+        className="bg-white rounded-none overflow-hidden w-full max-w-md mx-auto"
         style={{ border: '1px solid #ECECE6', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
       >
         <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#5B47E0,#7C3AED)' }} />
         <div className="p-5 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
+            <div className="size-9 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
               <Rocket className="size-4" style={{ color: '#5B47E0' }} />
             </div>
             <div>
@@ -241,7 +241,7 @@ function CampaignFormModal({ clientId, campaign, onClose }: { clientId: string; 
               <input
                 autoFocus
                 placeholder="e.g. Google Ads Q2 2026"
-                className="w-full px-3 py-2.5 text-sm rounded-xl outline-none transition-all bg-white"
+                className="w-full px-3 py-2.5 text-sm rounded-none outline-none transition-all bg-white"
                 style={{ border: '1px solid #ECECE6' }}
                 onFocus={inputFocus} onBlur={inputBlur}
                 {...form.register("name")}
@@ -255,7 +255,7 @@ function CampaignFormModal({ clientId, campaign, onClose }: { clientId: string; 
               <textarea
                 rows={3}
                 placeholder="Optional description…"
-                className="w-full px-3 py-2.5 text-sm rounded-xl outline-none transition-all bg-white resize-none"
+                className="w-full px-3 py-2.5 text-sm rounded-none outline-none transition-all bg-white resize-none"
                 style={{ border: '1px solid #ECECE6' }}
                 onFocus={inputFocus as any} onBlur={inputBlur as any}
                 {...form.register("description")}
@@ -265,7 +265,7 @@ function CampaignFormModal({ clientId, campaign, onClose }: { clientId: string; 
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors"
+                className="px-4 py-2.5 text-sm font-semibold rounded-none transition-colors"
                 style={{ background: '#FAFAF7', border: '1px solid #ECECE6', color: 'var(--foreground)' }}
               >
                 Cancel
@@ -273,7 +273,7 @@ function CampaignFormModal({ clientId, campaign, onClose }: { clientId: string; 
               <button
                 type="submit"
                 disabled={isPending}
-                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-none text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: 'linear-gradient(135deg,#111827,#1f2937)' }}
               >
                 {isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -302,13 +302,13 @@ function DeleteModal({ onClose, onConfirm, isPending }: { onClose: () => void; o
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.2, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden w-full max-w-sm mx-auto"
+        className="bg-white rounded-none overflow-hidden w-full max-w-sm mx-auto"
         style={{ border: '1px solid rgba(244,63,94,0.20)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
       >
         <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#f43f5e,#e11d48)' }} />
         <div className="p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.10)' }}>
+            <div className="size-9 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.10)' }}>
               <Trash2 className="size-4" style={{ color: '#f43f5e' }} />
             </div>
             <h2 className="font-heading font-bold text-base text-foreground">Delete Campaign?</h2>
@@ -319,7 +319,7 @@ function DeleteModal({ onClose, onConfirm, isPending }: { onClose: () => void; o
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors"
+              className="px-4 py-2.5 text-sm font-semibold rounded-none transition-colors"
               style={{ background: '#FAFAF7', border: '1px solid #ECECE6', color: 'var(--foreground)' }}
             >
               Cancel
@@ -327,7 +327,7 @@ function DeleteModal({ onClose, onConfirm, isPending }: { onClose: () => void; o
             <button
               onClick={onConfirm}
               disabled={isPending}
-              className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-none text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#f43f5e,#e11d48)' }}
             >
               {isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -380,7 +380,7 @@ export default function ClientDetailPage() {
         <p className="text-sm font-medium text-muted-foreground">Client not found.</p>
         <Link
           to="/clients"
-          className="text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+          className="text-sm font-semibold px-4 py-2 rounded-none transition-colors"
           style={{ background: '#FAFAF7', border: '1px solid #ECECE6', color: 'var(--foreground)' }}
         >
           Back to Clients
@@ -429,18 +429,19 @@ export default function ClientDetailPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden w-full animate-in fade-in slide-in-from-top-4"
+        className="bg-white rounded-xl overflow-hidden w-full animate-in fade-in slide-in-from-top-4"
         style={{ border: '1px solid #ECECE6' }}
       >
             {/* Top section with client details and pulse score */}
-            <div className="px-6 py-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden bg-[#0A0A0A]">
-              {/* Premium dark mesh background */}
-              <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(circle at 0% 0%, #2e1065 0%, transparent 50%), radial-gradient(circle at 100% 100%, #172554 0%, transparent 50%)' }} />
-              <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-              
+            <div className="px-6 py-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden bg-custom-gradient border-b border-gray-200">
+              <style dangerouslySetInnerHTML={{__html: `
+                .bg-custom-gradient {
+                  background: linear-gradient(to right, #1f2937 0%, #374151 40%, #e5e7eb 75%, #ffffff 100%);
+                }
+              `}} />
               <div className="flex items-center gap-6 relative z-10">
                 <div
-                  className="size-[96px] rounded-2xl flex items-center justify-center text-4xl font-bold text-white shadow-2xl shrink-0 border border-white/20 relative overflow-hidden"
+                  className="size-[84px] rounded-2xl flex items-center justify-center text-4xl font-bold text-white shadow-sm shrink-0 border border-zinc-650 relative overflow-hidden"
                 >
                   <div className="absolute inset-0 opacity-90" style={{ background: 'linear-gradient(135deg, #4f46e5, #ec4899)' }} />
                   {client.logoUrl ? (
@@ -454,10 +455,10 @@ export default function ClientDetailPage() {
                   <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="font-heading font-bold text-2xl text-white tracking-tight">{client.name}</h1>
                     <span
-                      className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-white/10"
+                      className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-none border border-transparent"
                       style={isActive
-                        ? { background: 'rgba(16,217,160,0.18)', color: '#10D9A0' }
-                        : { background: 'rgba(156,163,175,0.15)', color: '#9CA3AF' }
+                        ? { background: '#10b981', color: '#ffffff' }
+                        : { background: '#4b5563', color: '#f3f4f6' }
                       }
                     >
                       {isActive ? 'Active' : (client.status?.toLowerCase() ?? 'inactive')}
@@ -469,8 +470,7 @@ export default function ClientDetailPage() {
                       href={client.website.startsWith("http") ? client.website : `https://${client.website}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 mt-1 text-xs w-fit transition-colors group"
-                      style={{ color: 'rgba(255,255,255,0.45)' }}
+                      className="flex items-center gap-1 mt-1 text-xs w-fit transition-colors group text-zinc-300"
                     >
                       <Globe className="size-3.5 group-hover:text-white transition-colors" />
                       <span className="group-hover:text-white transition-colors">{client.website}</span>
@@ -482,8 +482,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center gap-2 mt-3">
                       <Link
                         to={`/clients/${clientId}/team`}
-                        className="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/10"
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                        className="inline-flex items-center gap-1.5 px-3 h-7 rounded-none text-[11px] font-semibold transition-colors bg-[#5B47E0] hover:bg-[#4F39D0] text-white shadow-sm border border-transparent"
                       >
                         <Users className="size-3" />
                         Manage Team
@@ -494,13 +493,13 @@ export default function ClientDetailPage() {
               </div>
 
               {/* Pulse Score Gauge */}
-              <div className="flex items-center gap-5 shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-2xl relative z-10">
+              <div className="flex items-center gap-5 shrink-0 bg-white/90 backdrop-blur-sm rounded-xl p-5 border border-gray-200 shadow-sm relative z-10">
                 <div className="relative size-20 flex items-center justify-center">
                   <svg className="size-full -rotate-90" viewBox="0 0 100 100">
                     <circle
                       cx="50" cy="50" r="38"
                       fill="transparent"
-                      stroke="rgba(255,255,255,0.1)"
+                      stroke="rgba(0,0,0,0.06)"
                       strokeWidth="8"
                     />
                     <circle
@@ -515,12 +514,12 @@ export default function ClientDetailPage() {
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-xl font-bold text-white tracking-tight">{pulseScore}</span>
+                    <span className="text-xl font-bold text-gray-900 tracking-tight">{pulseScore}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-0.5 max-w-[100px]">
-                  <span className="text-sm font-bold text-white">Client Pulse</span>
-                  <span className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <span className="text-sm font-bold text-gray-900">Client Pulse</span>
+                  <span className="text-xs leading-tight text-gray-500">
                     Based on active campaigns & integrations
                   </span>
                 </div>
@@ -536,7 +535,7 @@ export default function ClientDetailPage() {
                 { icon: FileText, color: '#0ea5e9', label: 'Automated Reports', value: totalReports },
               ].map(({ icon: Icon, color, label, value }) => (
                 <div key={label} className="flex items-center gap-4 px-6 py-5">
-                  <div className="size-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+                  <div className="size-10 rounded-none flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
                     <Icon className="size-5" style={{ color }} />
                   </div>
                   <div className="flex flex-col">
@@ -556,14 +555,14 @@ export default function ClientDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="font-heading font-bold text-lg text-foreground flex items-center gap-2">
                 Campaigns
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                <span className="text-xs px-2 py-0.5 rounded-none bg-primary/10 text-primary font-bold">
                   {total}
                 </span>
               </h2>
               {canEdit && (
                 <button
                   onClick={() => setFormOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm"
                   style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
                 >
                   <Plus className="size-4" />
@@ -575,12 +574,12 @@ export default function ClientDetailPage() {
             {campaignsLoading ? (
               <div className="grid grid-cols-1 gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl p-5 border border-[#ECECE6] animate-pulse h-24" />
+                  <div key={i} className="bg-white rounded-none p-5 border border-[#ECECE6] animate-pulse h-24" />
                 ))}
               </div>
             ) : campaigns.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#ECECE6] py-16 flex flex-col items-center gap-4 text-center">
-                <div className="size-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
+              <div className="bg-white rounded-none border border-[#ECECE6] py-16 flex flex-col items-center gap-4 text-center">
+                <div className="size-14 rounded-none flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
                   <Rocket className="size-7" style={{ color: '#5B47E0' }} />
                 </div>
                 <div>
@@ -590,7 +589,7 @@ export default function ClientDetailPage() {
                 {canEdit && (
                   <button
                     onClick={() => setFormOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-semibold text-white"
+                    className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-semibold text-white"
                     style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
                   >
                     <Plus className="size-3.5" />
@@ -609,10 +608,10 @@ export default function ClientDetailPage() {
                       initial={{ opacity: 0, scale: 0.98, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: i * 0.05, ease: "easeOut" }}
-                      className="group bg-white rounded-2xl p-5 hover:shadow-lg transition-all duration-300 relative border border-[#ECECE6] hover:border-primary/40 flex flex-col lg:flex-row lg:items-center justify-between gap-5"
+                      className="group bg-white rounded-none p-5 hover:shadow-lg transition-all duration-300 relative border border-[#ECECE6] hover:border-primary/40 flex flex-col lg:flex-row lg:items-center justify-between gap-5"
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="size-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0" style={{ background: gradient }}>
+                        <div className="size-12 rounded-none flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0" style={{ background: gradient }}>
                           {campaign.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -628,17 +627,17 @@ export default function ClientDetailPage() {
                       </div>
 
                       <div className="flex flex-wrap gap-2.5 shrink-0 items-center">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
                           <BarChart2 className="size-3.5 text-emerald-500" />
                           <span className="text-[11px] font-semibold text-muted-foreground">Dashboards</span>
                           <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.dashboards || 0}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
                           <FileText className="size-3.5 text-sky-500" />
                           <span className="text-[11px] font-semibold text-muted-foreground">Reports</span>
                           <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.reports || 0}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-slate-50 border border-slate-100 min-w-[95px] justify-center">
                           <Plug className="size-3.5 text-orange-500" />
                           <span className="text-[11px] font-semibold text-muted-foreground">Integrations</span>
                           <span className="text-xs font-bold text-foreground ml-auto">{campaign._count?.integrationConnections || 0}</span>
@@ -647,7 +646,7 @@ export default function ClientDetailPage() {
 
                       <div className="flex items-center justify-between lg:justify-end gap-3 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#ECECE6]/60">
                         <span
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wide"
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-none tracking-wide"
                           style={{ background: statusStyle.bg, color: statusStyle.color, border: statusStyle.border }}
                         >
                           {statusStyle.label}
@@ -656,7 +655,7 @@ export default function ClientDetailPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             to={`/clients/${clientId}/campaigns/${campaign.id}`}
-                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-[#FAFAF7] hover:bg-[#ECECE6] text-foreground transition-colors border border-[#ECECE6] flex items-center gap-1"
+                            className="h-8 px-3 rounded-none text-xs font-semibold bg-[#FAFAF7] hover:bg-[#ECECE6] text-foreground transition-colors border border-[#ECECE6] flex items-center gap-1"
                           >
                             Open
                             <ChevronRight className="size-3" />
@@ -682,7 +681,7 @@ export default function ClientDetailPage() {
 
         {/* RIGHT COLUMN: Global Activity Feed */}
         <div className="w-full xl:w-80 shrink-0">
-          <div className="bg-white rounded-2xl border border-[#ECECE6] overflow-hidden sticky top-6">
+          <div className="bg-white rounded-none border border-[#ECECE6] overflow-hidden sticky top-6">
             <div className="px-5 py-4 border-b border-[#ECECE6] flex items-center gap-2 bg-[#FAFAF7]/50">
               <Activity className="size-4 text-primary" />
               <h3 className="font-heading font-semibold text-sm text-foreground">Global Activity</h3>
@@ -693,10 +692,10 @@ export default function ClientDetailPage() {
                 <div className="space-y-6">
                   {[1, 2, 3, 4].map(i => (
                     <div key={i} className="flex gap-3 animate-pulse">
-                      <div className="size-6 rounded-full bg-muted shrink-0" />
+                      <div className="size-6 rounded-none bg-muted shrink-0" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-3 bg-muted rounded w-3/4" />
-                        <div className="h-2 bg-muted rounded w-1/4" />
+                        <div className="h-3 bg-muted rounded-none w-3/4" />
+                        <div className="h-2 bg-muted rounded-none w-1/4" />
                       </div>
                     </div>
                   ))}
@@ -717,7 +716,7 @@ export default function ClientDetailPage() {
                     <div className="space-y-7 relative py-2 px-1">
                       {/* Vertical line connecting timeline */}
                       {paginatedActivity.length > 1 && (
-                        <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-100 rounded-full" />
+                        <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-100 rounded-none" />
                       )}
                       
                       {paginatedActivity.map((activity) => {
@@ -731,7 +730,7 @@ export default function ClientDetailPage() {
 
                         return (
                           <div key={activity.id} className="flex gap-4 relative z-10 group/activity">
-                            <div className="size-8 rounded-full bg-white flex items-center justify-center border-2 shrink-0 shadow-sm transition-transform group-hover/activity:scale-110" 
+                            <div className="size-8 rounded-none bg-white flex items-center justify-center border-2 shrink-0 shadow-sm transition-transform group-hover/activity:scale-110" 
                                  style={{ borderColor: activity.type === 'alert' ? '#f43f5e' : activity.type === 'note' ? '#0ea5e9' : activity.type === 'integration' ? '#f97316' : '#5B47E0' }}>
                               {activity.type === 'alert' && <Bell className="size-3.5 text-rose-500" />}
                               {activity.type === 'note' && <MessageSquare className="size-3.5 text-sky-500" />}
@@ -762,7 +761,7 @@ export default function ClientDetailPage() {
                         <button
                           disabled={activityPage === 1}
                           onClick={() => setActivityPage(p => Math.max(1, p - 1))}
-                          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
+                          className="text-xs px-2.5 py-1.5 rounded-none border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
                         >
                           Prev
                         </button>
@@ -772,7 +771,7 @@ export default function ClientDetailPage() {
                         <button
                           disabled={activityPage === totalPages}
                           onClick={() => setActivityPage(p => Math.min(totalPages, p + 1))}
-                          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
+                          className="text-xs px-2.5 py-1.5 rounded-none border border-[#ECECE6] hover:bg-[#FAFAF7] disabled:opacity-40 transition-colors font-medium text-foreground"
                         >
                           Next
                         </button>

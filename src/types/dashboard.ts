@@ -7,7 +7,9 @@ export type IntegrationPlatform =
   | 'YOUTUBE_ANALYTICS'
   | 'LINKEDIN_ADS'
   | 'TIKTOK_ADS'
-  | 'AMAZON_ADS';
+  | 'AMAZON_ADS'
+  | 'GOOGLE_SHEETS'
+  | 'GOOGLE_BIGQUERY';
 
 export interface WidgetPosition {
   x: number;
@@ -29,6 +31,15 @@ export interface WidgetConfig {
   bodyColor?: string;
   bodyTextColor?: string;
   chartColors?: string[];
+  // Google Sheets — per-widget spreadsheet configuration
+  spreadsheetId?: string;
+  spreadsheetName?: string;
+  sheetName?: string;
+  dateColumn?: string;
+  metricColumn?: string;
+  dimensionColumn?: string;
+  // Google BigQuery — per-widget SQL query
+  sqlQuery?: string;
 }
 
 export interface DashboardWidget {

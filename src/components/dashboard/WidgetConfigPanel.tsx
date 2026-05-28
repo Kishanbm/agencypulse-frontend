@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Loader2, ChevronDown, Play } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useMetricDefinitions } from "@/hooks/useMetricDefinitions";
+import { getApiClient } from "@/lib/api";
 import type { DashboardWidget, WidgetType, IntegrationPlatform } from "@/types/dashboard";
 
 const CHART_DEFAULTS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#f97316"];
@@ -52,7 +54,7 @@ function ColorTargetPanel({
   };
 
   return (
-    <div className="border-t border-border pt-4 space-y-3">
+    <div className="space-y-3">
       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">Colors</label>
 
       {/* Target selector — 2×2 grid of chips */}
@@ -83,7 +85,7 @@ function ColorTargetPanel({
         })}
       </div>
 
-      {/* Color picker — large swatch (opens native picker) + hex input */}
+      {/* Color picker — large swatch + hex input */}
       <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-muted/30">
         <div className="flex items-center justify-between flex-1 gap-2">
           <label className="relative cursor-pointer shrink-0 group">
@@ -117,6 +119,158 @@ function ColorTargetPanel({
           )}
         </div>
       </div>
+
+      {/* Chart / Pie Colors — only for chart widget types */}
+      {(widget.widgetType === "LINE_CHART" || widget.widgetType === "BAR_CHART" || widget.widgetType === "PIE_CHART") && (
+        <div className="pt-2 space-y-2">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+            {widget.widgetType === "PIE_CHART" ? "Slice Colors" : "Series Colors"}
+          </label>
+          {(widget.metricKeys ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">Add metrics to configure colors</p>
+          ) : (
+            <div className="space-y-2">
+              {(widget.metricKeys ?? []).map((key, idx) => {
+                const current = widget.config?.chartColors?.[idx] || CHART_DEFAULTS[idx % CHART_DEFAULTS.length];
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <label className="relative cursor-pointer shrink-0 group">
+                      <div
+                        className="size-8 rounded-lg border-2 shadow-sm transition-transform group-hover:scale-105"
+                        style={{ background: current, borderColor: isLight(current) ? "#D1D5DB" : "rgba(255,255,255,0.2)" }}
+                        title="Click to pick color"
+                      />
+                      <input
+                        type="color"
+                        value={/^#[0-9A-Fa-f]{6}$/.test(current) ? current : CHART_DEFAULTS[idx % CHART_DEFAULTS.length]}
+                        onChange={(e) => {
+                          const next = [...(widget.config?.chartColors ?? CHART_DEFAULTS.slice(0, widget.metricKeys?.length ?? 1))];
+                          while (next.length <= idx) next.push(CHART_DEFAULTS[next.length % CHART_DEFAULTS.length]);
+                          next[idx] = e.target.value;
+                          onUpdate({ config: { ...widget.config, chartColors: next } });
+                        }}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      />
+                    </label>
+                    <span className="flex-1 text-xs text-foreground truncate">{key.replace(/_/g, " ")}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{current}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Appearance accordion (Size + Colors) ────────────────────────────────────
+
+function AppearanceSection({
+  widget,
+  onUpdate,
+  onResize,
+  customW,
+  customH,
+  setCustomW,
+  setCustomH,
+  applyCustomSize,
+  activePreset,
+}: {
+  widget: DashboardWidget;
+  onUpdate: (changes: Partial<Pick<DashboardWidget, "config">>) => void;
+  onResize: (w: number, h: number) => void;
+  customW: string;
+  customH: string;
+  setCustomW: (v: string) => void;
+  setCustomH: (v: string) => void;
+  applyCustomSize: () => void;
+  activePreset: { label: string; w: number; h: number } | undefined;
+}) {
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
+
+  return (
+    <div className="border border-border rounded-xl overflow-hidden">
+      {/* Size section */}
+      <button
+        onClick={() => setSizeOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3.5 py-2.5 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors"
+      >
+        <span>Size</span>
+        <ChevronDown className={`size-3.5 text-muted-foreground transition-transform duration-150 ${sizeOpen ? "rotate-180" : ""}`} />
+      </button>
+      {sizeOpen && (
+        <div className="px-3.5 pb-3.5 space-y-2 border-t border-border bg-muted/10">
+          <div className="grid grid-cols-4 gap-1.5 pt-3">
+            {SIZE_PRESETS.map((preset) => {
+              const isActive = activePreset?.label === preset.label;
+              return (
+                <button
+                  key={preset.label}
+                  onClick={() => onResize(preset.w, preset.h)}
+                  className="h-8 rounded-md text-[11px] font-semibold transition-all"
+                  style={{
+                    background: isActive ? "var(--primary)" : "var(--muted)",
+                    color: isActive ? "#FFFFFF" : "var(--muted-foreground)",
+                    border: isActive ? "none" : "1px solid var(--border)",
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Width × Height (drag handles also work)</p>
+          <div className="pt-0.5 space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Custom</p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground shrink-0">W</span>
+                <input
+                  type="number" min={1} max={12} value={customW}
+                  onChange={(e) => setCustomW(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && applyCustomSize()}
+                  className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground text-center"
+                />
+              </div>
+              <div className="flex-1 flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground shrink-0">H</span>
+                <input
+                  type="number" min={1} max={20} value={customH}
+                  onChange={(e) => setCustomH(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && applyCustomSize()}
+                  className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground text-center"
+                />
+              </div>
+              <button
+                onClick={applyCustomSize}
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all shrink-0"
+                style={{ background: "var(--primary)", color: "#FFFFFF" }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Color section */}
+      <div className="border-t border-border">
+        <button
+          onClick={() => setColorOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors"
+        >
+          <span>Colors</span>
+          <ChevronDown className={`size-3.5 text-muted-foreground transition-transform duration-150 ${colorOpen ? "rotate-180" : ""}`} />
+        </button>
+        {colorOpen && (
+          <div className="px-3.5 pb-3.5 border-t border-border bg-muted/10 pt-3">
+            <ColorTargetPanel widget={widget} onUpdate={onUpdate} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -135,11 +289,11 @@ const PLATFORMS: { value: IntegrationPlatform; label: string }[] = [
   { value: "META_ADS", label: "Meta Ads" },
   { value: "GOOGLE_SEARCH_CONSOLE", label: "Search Console" },
   { value: "LINKEDIN_ADS", label: "LinkedIn Ads" },
+  { value: "GOOGLE_SHEETS", label: "Google Sheets" },
+  { value: "GOOGLE_BIGQUERY", label: "Google BigQuery" },
 ];
 
 // Preset sizes: label → grid cols (w) × grid height-units (h)
-// W mapping: 1=3cols(25%), 2=6cols(50%), 3=9cols(75%), 4=12cols(100%)
-// H mapping: 1=3units(~150px), 2=5units(~260px), 3=8units(~420px)
 const SIZE_PRESETS = [
   { label: "1×1", w: 3,  h: 3 },
   { label: "2×1", w: 6,  h: 3 },
@@ -157,25 +311,31 @@ const SIZE_PRESETS = [
 
 interface WidgetConfigPanelProps {
   widget: DashboardWidget;
+  campaignId?: string;
   onClose: () => void;
   onUpdate: (changes: Partial<Pick<DashboardWidget, "config" | "metricKeys" | "platform" | "widgetType">>) => void;
   onResize: (w: number, h: number) => void;
   onDelete: () => void;
   isDeleting?: boolean;
+  onRunQuery?: (widgetId: string, sql: string) => Promise<void>;
 }
 
 export function WidgetConfigPanel({
   widget,
+  campaignId,
   onClose,
   onUpdate,
   onResize,
   onDelete,
   isDeleting,
+  onRunQuery,
 }: WidgetConfigPanelProps) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [customW, setCustomW] = useState(String(widget.position.w));
   const [customH, setCustomH] = useState(String(widget.position.h));
-  const { metrics, isLoading: metricsLoading } = useMetricDefinitions(widget.platform);
+  const { metrics, isLoading: metricsLoading } = useMetricDefinitions(
+    (widget.platform === "GOOGLE_SHEETS" || widget.platform === "GOOGLE_BIGQUERY") ? undefined : widget.platform
+  );
 
   // Keep custom fields in sync when position changes externally (e.g. drag resize)
   useEffect(() => {
@@ -205,13 +365,12 @@ export function WidgetConfigPanel({
     onResize(w, h);
   };
 
-  // Detect current active size preset
   const activePreset = SIZE_PRESETS.find(
     (p) => p.w === widget.position.w && p.h === widget.position.h
   );
 
   return (
-    <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col max-h-[calc(100vh-8rem)] sticky top-0">
+    <div className="w-full border-l border-border bg-card flex flex-col max-h-[calc(100vh-8rem)] sticky top-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">Widget Config</h3>
@@ -221,7 +380,7 @@ export function WidgetConfigPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {/* Title */}
+        {/* 1. Title */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Title</label>
           <input
@@ -233,116 +392,7 @@ export function WidgetConfigPanel({
           />
         </div>
 
-        {/* Size presets */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Size</label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {SIZE_PRESETS.map((preset) => {
-              const isActive = activePreset?.label === preset.label;
-              return (
-                <button
-                  key={preset.label}
-                  onClick={() => onResize(preset.w, preset.h)}
-                  className="h-8 rounded-md text-[11px] font-semibold transition-all"
-                  style={{
-                    background: isActive ? "var(--primary)" : "var(--muted)",
-                    color: isActive ? "#FFFFFF" : "var(--muted-foreground)",
-                    border: isActive ? "none" : "1px solid var(--border)",
-                  }}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-[10px] text-muted-foreground">Width × Height (drag handles also work)</p>
-
-          {/* Custom size */}
-          <div className="pt-1 space-y-1.5">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Custom</p>
-            <div className="flex items-center gap-1.5">
-              <div className="flex-1 flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground shrink-0">W</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={customW}
-                  onChange={(e) => setCustomW(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && applyCustomSize()}
-                  className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground text-center"
-                />
-              </div>
-              <div className="flex-1 flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground shrink-0">H</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={customH}
-                  onChange={(e) => setCustomH(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && applyCustomSize()}
-                  className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground text-center"
-                />
-              </div>
-              <button
-                onClick={applyCustomSize}
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all shrink-0"
-                style={{ background: "var(--primary)", color: "#FFFFFF" }}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card Colors */}
-        <ColorTargetPanel widget={widget} onUpdate={onUpdate} />
-
-        {/* Chart / Pie Colors — only for chart widget types */}
-        {(widget.widgetType === "LINE_CHART" || widget.widgetType === "BAR_CHART" || widget.widgetType === "PIE_CHART") && (
-          <div className="border-t border-border pt-4 space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
-              {widget.widgetType === "PIE_CHART" ? "Slice Colors" : "Series Colors"}
-            </label>
-            {(widget.metricKeys ?? []).length === 0 ? (
-              <p className="text-xs text-muted-foreground">Add metrics to configure colors</p>
-            ) : (
-              <div className="space-y-2">
-                {(widget.metricKeys ?? []).map((key, idx) => {
-                  const current = widget.config?.chartColors?.[idx] || CHART_DEFAULTS[idx % CHART_DEFAULTS.length];
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <label className="relative cursor-pointer shrink-0 group">
-                        <div
-                          className="size-8 rounded-lg border-2 shadow-sm transition-transform group-hover:scale-105"
-                          style={{ background: current, borderColor: isLight(current) ? "#D1D5DB" : "rgba(255,255,255,0.2)" }}
-                          title="Click to pick color"
-                        />
-                        <input
-                          type="color"
-                          value={/^#[0-9A-Fa-f]{6}$/.test(current) ? current : CHART_DEFAULTS[idx % CHART_DEFAULTS.length]}
-                          onChange={(e) => {
-                            const next = [...(widget.config?.chartColors ?? CHART_DEFAULTS.slice(0, widget.metricKeys?.length ?? 1))];
-                            // ensure array is long enough
-                            while (next.length <= idx) next.push(CHART_DEFAULTS[next.length % CHART_DEFAULTS.length]);
-                            next[idx] = e.target.value;
-                            onUpdate({ config: { ...widget.config, chartColors: next } });
-                          }}
-                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                        />
-                      </label>
-                      <span className="flex-1 text-xs text-foreground truncate">{key.replace(/_/g, " ")}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground">{current}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Widget Type */}
+        {/* 2. Widget Type */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Widget Type</label>
           <select
@@ -356,55 +406,91 @@ export function WidgetConfigPanel({
           </select>
         </div>
 
-        {/* Platform */}
+        {/* 3. Platform — read-only once set; changing platform would invalidate all widget config */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Platform</label>
-          <select
-            value={widget.platform ?? ""}
-            onChange={(e) => handlePlatformChange(e.target.value as IntegrationPlatform)}
-            className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-          >
-            <option value="">Select platform</option>
-            {PLATFORMS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
+          {widget.platform ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/40">
+              <span className="flex-1 text-sm text-foreground">
+                {PLATFORMS.find((p) => p.value === widget.platform)?.label ?? widget.platform}
+              </span>
+              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">locked</span>
+            </div>
+          ) : (
+            <select
+              value=""
+              onChange={(e) => handlePlatformChange(e.target.value as IntegrationPlatform)}
+              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+            >
+              <option value="">Select platform</option>
+              {PLATFORMS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {/* Metrics */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Metrics</label>
-          {!widget.platform ? (
-            <p className="text-xs text-muted-foreground">Select a platform first</p>
-          ) : metricsLoading ? (
-            <div className="space-y-1.5">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-7 bg-muted rounded animate-pulse" />)}
-            </div>
-          ) : metrics.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No metrics available</p>
-          ) : (
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {metrics.map((m) => {
-                const selected = widget.metricKeys?.includes(m.metricKey);
-                return (
-                  <div
-                    key={m.metricKey}
-                    onClick={() => handleMetricToggle(m.metricKey)}
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer transition-colors text-sm ${
-                      selected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
-                    }`}
-                  >
-                    <input type="checkbox" checked={!!selected} onChange={() => {}} className="accent-primary pointer-events-none" />
-                    <span>{m.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {widget.metricKeys?.length === 0 && widget.platform && (
-            <p className="text-xs text-destructive">At least one metric required</p>
-          )}
-        </div>
+        {/* 4. Metrics or platform-specific config */}
+        {widget.platform === "GOOGLE_SHEETS" ? (
+          <GoogleSheetsWidgetConfig
+            campaignId={campaignId}
+            widget={widget}
+            onUpdate={onUpdate}
+          />
+        ) : widget.platform === "GOOGLE_BIGQUERY" ? (
+          <GoogleBigQueryWidgetConfig
+            widget={widget}
+            onUpdate={onUpdate}
+            onRunQuery={onRunQuery}
+          />
+        ) : (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Metrics</label>
+            {!widget.platform ? (
+              <p className="text-xs text-muted-foreground">Select a platform first</p>
+            ) : metricsLoading ? (
+              <div className="space-y-1.5">
+                {[...Array(4)].map((_, i) => <div key={i} className="h-7 bg-muted rounded animate-pulse" />)}
+              </div>
+            ) : metrics.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No metrics available</p>
+            ) : (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {metrics.map((m) => {
+                  const selected = widget.metricKeys?.includes(m.metricKey);
+                  return (
+                    <div
+                      key={m.metricKey}
+                      onClick={() => handleMetricToggle(m.metricKey)}
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer transition-colors text-sm ${
+                        selected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <input type="checkbox" checked={!!selected} onChange={() => {}} className="accent-primary pointer-events-none" />
+                      <span>{m.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {widget.metricKeys?.length === 0 && widget.platform && (
+              <p className="text-xs text-destructive">At least one metric required</p>
+            )}
+          </div>
+        )}
+
+        {/* 5. Appearance accordion (Size + Colors) */}
+        <AppearanceSection
+          widget={widget}
+          onUpdate={onUpdate}
+          onResize={onResize}
+          customW={customW}
+          customH={customH}
+          setCustomW={setCustomW}
+          setCustomH={setCustomH}
+          applyCustomSize={applyCustomSize}
+          activePreset={activePreset}
+        />
       </div>
 
       {/* Delete */}
@@ -430,6 +516,277 @@ export function WidgetConfigPanel({
             Remove Widget
           </Button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Google Sheets per-widget config ─────────────────────────────────────────
+
+function GoogleSheetsWidgetConfig({
+  campaignId,
+  widget,
+  onUpdate,
+}: {
+  campaignId?: string;
+  widget: DashboardWidget;
+  onUpdate: (changes: Partial<Pick<DashboardWidget, "config" | "metricKeys">>) => void;
+}) {
+  const api = getApiClient();
+  const cfg = widget.config;
+
+  const spreadsheetId = cfg?.spreadsheetId ?? "";
+  const sheetName = cfg?.sheetName ?? "";
+
+  const { data: spreadsheets = [], isLoading: sheetsLoading, error: sheetsError } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["gs-spreadsheets", campaignId],
+    queryFn: () =>
+      api
+        .get<{ id: string; name: string }[]>("/integrations/google-sheets/spreadsheets", {
+          params: { campaignId },
+        })
+        .then((r) => r.data),
+    enabled: !!campaignId,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const { data: tabs = [], isLoading: tabsLoading } = useQuery<string[]>({
+    queryKey: ["gs-tabs", campaignId, spreadsheetId],
+    queryFn: () =>
+      api
+        .get<string[]>("/integrations/google-sheets/sheets", {
+          params: { campaignId, spreadsheetId },
+        })
+        .then((r) => r.data),
+    enabled: !!campaignId && !!spreadsheetId,
+    staleTime: 60_000,
+  });
+
+  const { data: headers = [], isLoading: headersLoading } = useQuery<string[]>({
+    queryKey: ["gs-headers", campaignId, spreadsheetId, sheetName],
+    queryFn: () =>
+      api
+        .get<string[]>("/integrations/google-sheets/headers", {
+          params: { campaignId, spreadsheetId, sheetName },
+        })
+        .then((r) => r.data),
+    enabled: !!campaignId && !!spreadsheetId && !!sheetName,
+    staleTime: 60_000,
+  });
+
+  const updateConfig = (patch: Partial<DashboardWidget["config"]>) => {
+    onUpdate({ config: { ...cfg, ...patch } });
+  };
+
+  const needsDateCol = widget.widgetType === "LINE_CHART" || widget.widgetType === "BAR_CHART";
+  const needsDimCol  = widget.widgetType === "BAR_CHART" || widget.widgetType === "PIE_CHART";
+  const needsMetricCol = widget.widgetType !== "TABLE";
+
+  return (
+    <div className="space-y-3">
+      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+        Spreadsheet
+      </label>
+
+      {sheetsLoading ? (
+        <div className="h-8 bg-muted rounded animate-pulse" />
+      ) : sheetsError ? (
+        <p className="text-xs text-destructive py-1">
+          {(sheetsError as any)?.response?.data?.message ?? (sheetsError as Error)?.message ?? "Failed to load spreadsheets"}
+        </p>
+      ) : (
+        <select
+          value={spreadsheetId}
+          onChange={(e) => {
+            const selected = spreadsheets.find(s => s.id === e.target.value);
+            updateConfig({ spreadsheetId: e.target.value, spreadsheetName: selected?.name, sheetName: "", dateColumn: "", metricColumn: "", dimensionColumn: "" });
+          }}
+          className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+        >
+          <option value="">Select spreadsheet…</option>
+          {spreadsheets.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      )}
+
+      {spreadsheetId && (
+        <>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">Sheet tab</label>
+          {tabsLoading ? (
+            <div className="h-8 bg-muted rounded animate-pulse" />
+          ) : (
+            <select
+              value={sheetName}
+              onChange={(e) => updateConfig({ sheetName: e.target.value, dateColumn: "", metricColumn: "", dimensionColumn: "" })}
+              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+            >
+              <option value="">Select tab…</option>
+              {tabs.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
+        </>
+      )}
+
+      {sheetName && (
+        <>
+          {headersLoading ? (
+            <div className="h-8 bg-muted rounded animate-pulse" />
+          ) : headers.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No column headers found in row 1</p>
+          ) : (
+            <div className="space-y-2.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+                Column mapping
+              </label>
+
+              {needsDateCol && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">Date column</p>
+                  <select
+                    value={cfg?.dateColumn ?? ""}
+                    onChange={(e) => updateConfig({ dateColumn: e.target.value })}
+                    className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                  >
+                    <option value="">None (no date filter)</option>
+                    {headers.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {needsDimCol && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">
+                    {widget.widgetType === "PIE_CHART" ? "Label column" : "Group by column"}
+                  </p>
+                  <select
+                    value={cfg?.dimensionColumn ?? ""}
+                    onChange={(e) => updateConfig({ dimensionColumn: e.target.value })}
+                    className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                  >
+                    <option value="">Select column…</option>
+                    {headers.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {needsMetricCol && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">Value column</p>
+                  <select
+                    value={cfg?.metricColumn ?? "__count__"}
+                    onChange={(e) => updateConfig({ metricColumn: e.target.value })}
+                    className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                  >
+                    <option value="__count__">Count of rows</option>
+                    {headers.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {widget.widgetType === "KPI" && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">Aggregation</p>
+                  <select
+                    value={cfg?.aggregation ?? "sum"}
+                    onChange={(e) => updateConfig({ aggregation: e.target.value as "sum" | "avg" | "last" })}
+                    className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                  >
+                    <option value="sum">Sum — total across all rows</option>
+                    <option value="avg">Average — mean across all rows</option>
+                    <option value="last">Last — most recent row value</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Google BigQuery per-widget config ───────────────────────────────────────
+
+function GoogleBigQueryWidgetConfig({
+  widget,
+  onUpdate,
+  onRunQuery,
+}: {
+  widget: DashboardWidget;
+  onUpdate: (changes: Partial<Pick<DashboardWidget, "config" | "metricKeys">>) => void;
+  onRunQuery?: (widgetId: string, sql: string) => Promise<void>;
+}) {
+  const [isRunning, setIsRunning] = useState(false);
+  const cfg = widget.config;
+  const sqlQuery = cfg.sqlQuery ?? "";
+  const widgetType = widget.widgetType;
+
+  const hints: Record<string, string> = {
+    KPI: "Return any numeric column. The first numeric column is used as the value.",
+    LINE_CHART: "Return `date` (YYYY-MM-DD) and `value` columns for time-series, or `name`/`label` and `value` for grouped.",
+    BAR_CHART: "Return `date` (YYYY-MM-DD) and `value` columns for time-series, or `name`/`label` and `value` for grouped.",
+    PIE_CHART: "Return `name` (or `label`) and `value` columns. One row per slice.",
+    TABLE: "Return any columns — they are displayed as-is in the table widget.",
+  };
+
+  const hint = hints[widgetType] ?? "Use {from} and {to} placeholders for the date range filter.";
+
+  const handleRun = async () => {
+    if (!sqlQuery.trim() || !onRunQuery) return;
+    setIsRunning(true);
+    try {
+      await onRunQuery(widget.id, sqlQuery);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1.5">
+          SQL Query
+        </label>
+        <textarea
+          rows={7}
+          value={sqlQuery}
+          onChange={(e) =>
+            onUpdate({ config: { ...cfg, sqlQuery: e.target.value }, metricKeys: [] })
+          }
+          placeholder={`SELECT date, value\nFROM \`your_dataset.your_table\`\nWHERE date BETWEEN '{from}' AND '{to}'\nORDER BY date`}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+          spellCheck={false}
+        />
+      </div>
+
+      {/* Run button */}
+      <button
+        onClick={handleRun}
+        disabled={!sqlQuery.trim() || isRunning || !onRunQuery}
+        className="w-full h-9 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+        style={{ background: "var(--primary)", color: "#FFFFFF" }}
+      >
+        {isRunning ? (
+          <><Loader2 className="size-3.5 animate-spin" /> Running…</>
+        ) : (
+          <><Play className="size-3.5" /> Run Query</>
+        )}
+      </button>
+
+      <div className="rounded-lg bg-muted/60 border border-border/60 px-3 py-2.5 space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Column hint for {widgetType.replace(/_/g, " ")}
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Use <code className="bg-muted rounded px-1">{"{from}"}</code> and{" "}
+          <code className="bg-muted rounded px-1">{"{to}"}</code> in your query as date range
+          placeholders (YYYY-MM-DD format).
+        </p>
       </div>
     </div>
   );

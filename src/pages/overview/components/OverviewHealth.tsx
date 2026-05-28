@@ -61,17 +61,17 @@ export function OverviewHealth({ rankingData }: Props) {
     : null;
 
   return (
-    <div className="rounded-2xl overflow-hidden flex flex-col" style={{ border: '1px solid #ECECE6' }}>
-      {/* Dark header */}
+    <div className="rounded-sm overflow-hidden flex flex-col bg-white" style={{ border: '1px solid #E5E7EB' }}>
+      {/* Header */}
       <div
         className="px-5 pt-5 pb-4"
-        style={{ background: '#0F0D1F', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid #E5E7EB' }}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Activity className="size-4" style={{ color: '#5B47E0' }} />
-              <h3 className="font-heading font-semibold text-sm text-white">Integration Health</h3>
+              <h3 className="font-heading font-semibold text-sm text-foreground">Integration Health</h3>
               {atRisk.length > 0 && (
                 <span
                   className="size-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
@@ -89,18 +89,18 @@ export function OverviewHealth({ rankingData }: Props) {
                 >
                   {healthScore}% healthy
                 </span>
-                <span className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <span className="size-1.5 rounded-full" style={{ background: '#10D9A0' }} />
                   {summary?.connected} OK
                 </span>
                 {(summary?.expired ?? 0) > 0 && (
-                  <span className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                  <span className="flex items-center gap-1 text-muted-foreground">
                     <span className="size-1.5 rounded-full" style={{ background: '#F5A524' }} />
                     {summary?.expired} exp.
                   </span>
                 )}
                 {(summary?.error ?? 0) > 0 && (
-                  <span className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                  <span className="flex items-center gap-1 text-muted-foreground">
                     <span className="size-1.5 rounded-full" style={{ background: '#f43f5e' }} />
                     {summary?.error} err.
                   </span>

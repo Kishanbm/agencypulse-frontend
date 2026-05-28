@@ -293,6 +293,11 @@ function IntegrationCard({
                         Synced {formatDistanceToNow(new Date(connection.lastSyncAt), { addSuffix: true })}
                       </span>
                     </div>
+                  ) : platform.key === 'GOOGLE_SHEETS' || platform.key === 'GOOGLE_BIGQUERY' ? (
+                    <div className="flex items-center gap-1 text-[11px] font-medium" style={{ color: '#059669' }}>
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      <span>Connected — data loads on-demand</span>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#10D9A0' }}>
                       <RefreshCw className="size-3.5 animate-spin shrink-0" />
@@ -356,17 +361,19 @@ function IntegrationCard({
                       </button>
                     ) : (
                       <>
-                        <button
-                          onClick={() => onSync(platform.key)}
-                          disabled={isPendingSync}
-                          className="flex-[2] inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
-                          style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.2)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.15)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.08)'; }}
-                        >
-                          {isPendingSync ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
-                          Sync
-                        </button>
+                        {platform.key !== 'GOOGLE_SHEETS' && platform.key !== 'GOOGLE_BIGQUERY' && (
+                          <button
+                            onClick={() => onSync(platform.key)}
+                            disabled={isPendingSync}
+                            className="flex-[2] inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                            style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.2)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.15)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,71,224,0.08)'; }}
+                          >
+                            {isPendingSync ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+                            Sync
+                          </button>
+                        )}
                         <button
                           onClick={() => onDisconnect(platform.key, platform.name)}
                           className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-xl text-xs font-medium transition-all"
@@ -455,6 +462,9 @@ export default function IntegrationsPage() {
   const [gscSitePicker, setGscSitePicker] = useState(false);
   const [youtubeChannelPicker, setYoutubeChannelPicker] = useState(false);
   const [googleAdsCustomerPicker, setGoogleAdsCustomerPicker] = useState(false);
+  const [gbpLocationPicker, setGbpLocationPicker] = useState(false);
+  const [bigQueryProjectPicker, setBigQueryProjectPicker] = useState(false);
+  const [linkedInAdsAccountPicker, setLinkedInAdsAccountPicker] = useState(false);
   const [shopDomainInput, setShopDomainInput] = useState("");
   const [flippedCardKey, setFlippedCardKey] = useState<string | null>(null);
 
@@ -481,6 +491,14 @@ export default function IntegrationsPage() {
       setYoutubeChannelPicker(true);
     } else if (connected.toLowerCase() === "google-ads") {
       setGoogleAdsCustomerPicker(true);
+    } else if (connected.toLowerCase() === "google-business-profile") {
+      setGbpLocationPicker(true);
+    } else if (connected.toLowerCase() === "google-sheets") {
+      toast.success("Google Sheets connected — add a Google Sheets widget to your dashboard to configure a spreadsheet.");
+    } else if (connected.toLowerCase() === "google-bigquery") {
+      setBigQueryProjectPicker(true);
+    } else if (connected.toLowerCase() === "linkedin-ads") {
+      setLinkedInAdsAccountPicker(true);
     } else {
       const entry = PLATFORM_CATALOG.find(
         (p) => p.slug === connected || p.key.toLowerCase() === connected.toLowerCase(),
@@ -847,6 +865,45 @@ export default function IntegrationsPage() {
         />
       )}
 
+      {/* GBP Location Picker */}
+      {gbpLocationPicker && (
+        <GbpLocationPickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setGbpLocationPicker(false)}
+          onSaved={() => {
+            setGbpLocationPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("Google Business Profile connected successfully");
+          }}
+        />
+      )}
+
+      {/* BigQuery Project Picker */}
+      {bigQueryProjectPicker && (
+        <BigQueryProjectPickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setBigQueryProjectPicker(false)}
+          onSaved={() => {
+            setBigQueryProjectPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("Google BigQuery connected — add a BigQuery widget to your dashboard and write your SQL query.");
+          }}
+        />
+      )}
+
+      {/* LinkedIn Ads Account Picker */}
+      {linkedInAdsAccountPicker && (
+        <LinkedInAdsAccountPickerModal
+          campaignId={campaignId ?? ""}
+          onClose={() => setLinkedInAdsAccountPicker(false)}
+          onSaved={() => {
+            setLinkedInAdsAccountPicker(false);
+            void queryClient.invalidateQueries({ queryKey });
+            toast.success("LinkedIn Ads connected successfully");
+          }}
+        />
+      )}
+
       {/* API Key Modal */}
       {apiKeyTarget && (
         <ApiKeyConnectModal
@@ -1151,6 +1208,226 @@ function YoutubeChannelPickerModal({
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Channel
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── GBP Location Picker Modal ───────────────────────────────────────────────
+
+interface GbpLocation {
+  accountId: string;
+  accountName: string;
+  locationId: string;
+  locationName: string;
+  address: string;
+}
+
+function GbpLocationPickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<GbpLocation | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualAccountId, setManualAccountId] = useState("");
+  const [manualLocationId, setManualLocationId] = useState("");
+
+  const { data: locations = [], isLoading, error } = useQuery<GbpLocation[]>({
+    queryKey: ["gbp-locations", campaignId],
+    queryFn: () =>
+      api
+        .get<GbpLocation[]>("/integrations/google-business-profile/locations", { params: { campaignId } })
+        .then((r) => r.data),
+    retry: false,
+  });
+
+  // Auto-switch to manual mode when API quota is exhausted
+  const isQuotaError = !!error;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      let accountId: string;
+      let locationId: string;
+
+      if (manualMode || isQuotaError) {
+        // Normalise: strip leading/trailing spaces, ensure "accounts/" and "locations/" prefixes
+        accountId = manualAccountId.trim().startsWith("accounts/")
+          ? manualAccountId.trim()
+          : `accounts/${manualAccountId.trim()}`;
+        locationId = manualLocationId.trim().startsWith("locations/")
+          ? manualLocationId.trim()
+          : `locations/${manualLocationId.trim()}`;
+      } else {
+        if (!selected) return;
+        accountId = selected.accountId;
+        locationId = selected.locationId;
+      }
+
+      await api.post("/integrations/google-business-profile/select-location", {
+        campaignId,
+        accountId,
+        locationId,
+      });
+      onSaved();
+    } catch {
+      toast.error("Failed to save Business Profile location — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSave = manualMode || isQuotaError
+    ? manualAccountId.trim().length > 0 && manualLocationId.trim().length > 0
+    : !!selected;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:google-icon" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select Business Location</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Auto-list mode */}
+          {!manualMode && !isQuotaError && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Choose which Google Business Profile location to sync reviews and ratings from.
+              </p>
+
+              {isLoading && (
+                <div className="space-y-2">
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              )}
+
+              {!isLoading && locations.length === 0 && !error && (
+                <p className="text-sm text-muted-foreground">
+                  No Business Profile locations found on this Google account.
+                </p>
+              )}
+
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {locations.map((loc) => (
+                  <button
+                    key={loc.locationId}
+                    onClick={() => setSelected(loc)}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                      selected?.locationId === loc.locationId
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-foreground">{loc.locationName}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {loc.address ? `${loc.address} · ` : ""}{loc.accountName}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setManualMode(true)}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Enter IDs manually instead
+              </button>
+            </>
+          )}
+
+          {/* Manual entry mode (also shown automatically when API quota is exceeded) */}
+          {(manualMode || isQuotaError) && (
+            <>
+              {isQuotaError && (
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-3 text-xs text-amber-800 dark:text-amber-300">
+                  The Google Business Profile Accounts API has a quota limit on this project. Enter your Account ID and Location ID manually — find them in your GBP dashboard URL at{" "}
+                  <span className="font-mono">business.google.com</span>.
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">
+                    Account ID
+                  </label>
+                  <input
+                    type="text"
+                    value={manualAccountId}
+                    onChange={(e) => setManualAccountId(e.target.value)}
+                    placeholder="e.g. 123456789  or  accounts/123456789"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Found in the URL when managing your business on business.google.com
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">
+                    Location ID
+                  </label>
+                  <input
+                    type="text"
+                    value={manualLocationId}
+                    onChange={(e) => setManualLocationId(e.target.value)}
+                    placeholder="e.g. 987654321  or  locations/987654321"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Found in the URL when viewing a specific location on business.google.com
+                  </p>
+                </div>
+              </div>
+
+              {!isQuotaError && (
+                <button
+                  onClick={() => setManualMode(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  ← Back to location list
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!canSave || saving}
+            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            Connect Location
           </button>
         </div>
       </motion.div>
@@ -1537,6 +1814,273 @@ function Ga4PropertyPickerModal({
             style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : "Connect Property"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── LinkedIn Ads Account Picker Modal ───────────────────────────────────────
+
+interface LinkedInAdAccount {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+}
+
+function LinkedInAdsAccountPickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: accounts = [], isLoading, error } = useQuery<LinkedInAdAccount[]>({
+    queryKey: ["linkedin-ads-accounts", campaignId],
+    queryFn: () =>
+      api
+        .get<LinkedInAdAccount[]>("/integrations/linkedin-ads/ad-accounts", { params: { campaignId } })
+        .then((r) => r.data),
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.post("/integrations/linkedin-ads/select-account", { campaignId, accountId: selected });
+      onSaved();
+    } catch {
+      toast.error("Failed to save LinkedIn Ads account — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:linkedin" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select LinkedIn Ad Account</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose which LinkedIn Campaign Manager account to sync impressions, clicks, spend, and conversions from.
+          </p>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load accounts:{" "}
+              {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (error as Error)?.message ??
+                "Unknown error"}
+            </p>
+          )}
+
+          {!isLoading && accounts.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">
+              No LinkedIn ad accounts found. Make sure your LinkedIn account has access to at least one Campaign Manager account.
+            </p>
+          )}
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {accounts.map((acc) => (
+              <button
+                key={acc.id}
+                onClick={() => setSelected(acc.id)}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                  selected === acc.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{acc.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Account ID: {acc.id} · {acc.type} · {acc.status}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            Connect Account
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── BigQuery Project Picker Modal ───────────────────────────────────────────
+
+interface BQProject {
+  id: string;
+  friendlyName: string;
+}
+
+function BigQueryProjectPickerModal({
+  campaignId,
+  onClose,
+  onSaved,
+}: {
+  campaignId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const api = getApiClient();
+  const [selected, setSelected] = useState<BQProject | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const { data: projects = [], isLoading, error } = useQuery<BQProject[]>({
+    queryKey: ["bigquery-projects", campaignId],
+    queryFn: () =>
+      api
+        .get<BQProject[]>("/integrations/google-bigquery/projects", { params: { campaignId } })
+        .then((r) => r.data),
+    retry: false,
+  });
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await api.post("/integrations/google-bigquery/project", {
+        campaignId,
+        projectId: selected.id,
+      });
+      onSaved();
+    } catch {
+      toast.error("Failed to save BigQuery project — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <Icon icon="logos:google-cloud" className="size-5" />
+            <h2 className="font-heading font-bold text-base">Select BigQuery Project</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Choose the GCP project that contains your BigQuery datasets. Each dashboard widget
+            will have its own SQL query — configure them in the dashboard editor.
+          </p>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <AlertCircle className="size-4 mt-0.5 shrink-0" />
+              <span>
+                {(error as { response?: { data?: { message?: string } } })?.response?.data?.message
+                  ?? "Could not load projects — ensure BigQuery API is enabled in your GCP project."}
+              </span>
+            </div>
+          )}
+
+          {!isLoading && !error && projects.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No BigQuery-enabled projects found for this Google account.
+            </p>
+          )}
+
+          {!isLoading && projects.length > 0 && (
+            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+              {projects.map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => setSelected(proj)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                    selected?.id === proj.id
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{proj.friendlyName}</div>
+                    <div className="text-xs text-muted-foreground truncate">{proj.id}</div>
+                  </div>
+                  {selected?.id === proj.id && (
+                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!selected || saving}
+            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+          >
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Connect Project"}
           </button>
         </div>
       </motion.div>

@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Minus, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 import { api } from '@/lib/api';
@@ -44,11 +44,9 @@ function KpiCard({ label, value, delta, prior, isCurrency, index }: {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.04, ease: "easeOut" as const }}
-      className="bg-white rounded-2xl overflow-hidden hover:shadow-md transition-shadow relative"
-      style={{ border: `1px solid #ECECE6` }}
+      className="bg-white rounded-sm overflow-hidden hover:shadow-md transition-all relative"
+      style={{ border: `1px solid #E5E7EB` }}
     >
-      {/* Top accent bar */}
-      <div className="h-0.5 w-full" style={{ background: accentColor }} />
       <div className="p-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 truncate">{label}</p>
         <p
@@ -70,8 +68,7 @@ function KpiCard({ label, value, delta, prior, isCurrency, index }: {
 
 function KpiCardSkeleton() {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
-      <div className="h-0.5 bg-muted" />
+    <div className="bg-white rounded-sm overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
       <div className="p-4 space-y-2">
         <div className="h-2.5 w-20 animate-pulse rounded bg-muted" />
         <div className="h-6 w-20 animate-pulse rounded-lg bg-muted" />
@@ -111,9 +108,9 @@ export function OverviewKpis({ from, to, datePreset }: Props) {
           {Array.from({ length: 8 }).map((_, i) => <KpiCardSkeleton key={i} />)}
         </div>
       ) : kpiItems.length === 0 ? (
-        <div className="bg-white rounded-2xl py-14 text-center px-4" style={{ border: '1px solid #ECECE6' }}>
+        <div className="bg-white rounded-sm py-14 text-center px-4" style={{ border: '1px solid #E5E7EB' }}>
           <div
-            className="mx-auto mb-3 size-12 rounded-2xl flex items-center justify-center"
+            className="mx-auto mb-3 size-12 rounded-sm flex items-center justify-center"
             style={{ background: 'rgba(91,71,224,0.08)' }}
           >
             <Activity className="size-6" style={{ color: '#5B47E0' }} />

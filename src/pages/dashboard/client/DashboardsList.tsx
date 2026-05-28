@@ -338,14 +338,14 @@ export function DashboardsList() {
                   <div className="absolute right-4 top-4 z-10">
                     {canEdit && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger render={
                           <button
                             onClick={(e) => e.stopPropagation()}
                             className="p-1.5 rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-foreground transition-colors"
                           >
                             <MoreVertical className="size-5" />
                           </button>
-                        </DropdownMenuTrigger>
+                        } />
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); setDashboardToRename(dashboard); setRenameValue(dashboard.name); setRenameOpen(true); }}

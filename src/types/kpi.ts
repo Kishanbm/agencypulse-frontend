@@ -1,9 +1,15 @@
+export type KpiFormatType = 'PERCENTAGE' | 'CURRENCY' | 'NUMBER';
+export type KpiGoalCondition = 'ABOVE' | 'BELOW' | 'BETWEEN';
+
 export interface KpiDefinition {
   id: string;
   agencyId: string;
   name: string;
   formula: string;
   platform: string;
+  formatType?: KpiFormatType;
+  goalCondition?: KpiGoalCondition;
+  goalTarget?: number;
   createdAt: string;
 }
 
@@ -17,4 +23,7 @@ export interface CreateKpiDefinitionDto {
   name: string;
   formula: string;
   platform: string;
+  formatType?: KpiFormatType;
+  goalCondition?: KpiGoalCondition;
+  goalTarget?: number;
 }

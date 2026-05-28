@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { motion, AnimatePresence } from "motion/react";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useSidebarStore } from "@/lib/store";
 import { useHasRole, useRole } from "@/hooks/useRole";
 import { hasRole } from "@/lib/rbac";
 import { useBranding } from "@/contexts/BrandingContext";
@@ -172,7 +172,8 @@ function HeaderUserMenu({ initials, avatarUrl, fullName, email, canSeeSettings, 
 }
 
 export function AgencyAppLayout() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
+  const setIsCollapsed = useSidebarStore((s) => s.setCollapsed);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();

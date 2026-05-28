@@ -115,7 +115,7 @@ function formatDate(iso: string) {
 }
 
 function inputFocus(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-  e.currentTarget.style.borderColor = '#5B47E0';
+  e.currentTarget.style.borderColor = '#0F172A';
   e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.12)';
 }
 function inputBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
@@ -153,7 +153,7 @@ function ClientMenu({
     <div ref={ref} className="relative">
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-        className="size-7 rounded-lg flex items-center justify-center transition-colors hover:bg-black/5 bg-black/5"
+        className="size-7 rounded-none flex items-center justify-center transition-colors hover:bg-black/5 bg-black/5"
       >
         <MoreHorizontal className="size-4 text-foreground" />
       </button>
@@ -164,7 +164,7 @@ function ClientMenu({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" as const }}
-            className="absolute right-0 top-9 z-50 w-44 bg-white rounded-xl overflow-hidden py-1"
+            className="absolute right-0 top-9 z-50 w-44 bg-white rounded-none overflow-hidden py-1"
             style={{ border: '1px solid #ECECE6', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
           >
             <Link
@@ -272,13 +272,13 @@ function ClientFormModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.97 }}
         transition={{ duration: 0.25, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden w-full max-w-md mx-auto"
+        className="bg-white rounded-none overflow-hidden w-full max-w-md mx-auto"
         style={{ border: '1px solid #ECECE6', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
       >
         <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#5B47E0,#7C3AED)' }} />
         <div className="p-5 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
+            <div className="size-9 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
               <Building2 className="size-4" style={{ color: '#5B47E0' }} />
             </div>
             <div>
@@ -293,7 +293,7 @@ function ClientFormModal({
               <input
                 autoFocus
                 placeholder="e.g. Acme Corp"
-                className="w-full px-3 py-2.5 text-sm rounded-xl outline-none transition-all bg-white"
+                className="w-full px-3 py-2.5 text-sm rounded-none outline-none transition-all bg-white"
                 style={{ border: '1px solid #ECECE6' }}
                 onFocus={inputFocus} onBlur={inputBlur}
                 {...form.register("name")}
@@ -308,7 +308,7 @@ function ClientFormModal({
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                 <input
                   placeholder="e.g. acme.com"
-                  className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl outline-none transition-all bg-white"
+                  className="w-full pl-9 pr-3 py-2.5 text-sm rounded-none outline-none transition-all bg-white"
                   style={{ border: '1px solid #ECECE6' }}
                   onFocus={inputFocus} onBlur={inputBlur}
                   {...form.register("website")}
@@ -333,7 +333,7 @@ function ClientFormModal({
                           form.setValue("services", [...currentServices, service]);
                         }
                       }}
-                      className="px-3 py-1.5 text-[13px] font-medium rounded-lg transition-colors border"
+                      className="px-3 py-1.5 text-[13px] font-medium rounded-none transition-colors border"
                       style={{
                         backgroundColor: isSelected ? 'rgba(91,71,224,0.1)' : '#fff',
                         borderColor: isSelected ? '#5B47E0' : '#ECECE6',
@@ -351,7 +351,7 @@ function ClientFormModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors"
+                className="px-4 py-2.5 text-sm font-semibold rounded-none transition-colors"
                 style={{ background: '#FAFAF7', border: '1px solid #ECECE6', color: 'var(--foreground)' }}
               >
                 Cancel
@@ -359,7 +359,7 @@ function ClientFormModal({
               <button
                 type="submit"
                 disabled={isPending}
-                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-none text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: 'linear-gradient(135deg,#111827,#1f2937)' }}
               >
                 {isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -398,12 +398,12 @@ function ArchiveModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.2, ease: "easeOut" as const }}
-        className="bg-white rounded-3xl overflow-hidden w-full max-w-sm mx-auto shadow-2xl"
+        className="bg-white rounded-none overflow-hidden w-full max-w-sm mx-auto shadow-2xl"
         style={{ border: '1px solid rgba(244,63,94,0.15)' }}
       >
         <div className="p-6 space-y-5">
           <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)' }}>
+            <div className="size-12 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)' }}>
               <Trash2 className="size-5" style={{ color: '#f43f5e' }} />
             </div>
             <div>
@@ -417,7 +417,7 @@ function ArchiveModal({
           <div className="flex gap-2.5 justify-end mt-2">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 text-sm font-semibold rounded-lg transition-all hover:bg-gray-50"
+              className="px-4 py-2.5 text-sm font-semibold rounded-none transition-all hover:bg-gray-50"
               style={{ color: 'var(--foreground)' }}
             >
               Cancel
@@ -425,7 +425,7 @@ function ArchiveModal({
             <button
               onClick={onConfirm}
               disabled={isPending}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-none text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ background: '#f43f5e', boxShadow: '0 4px 14px 0 rgba(244, 63, 94, 0.39)' }}
             >
               {isPending && <Loader2 className="size-4 animate-spin" />}
@@ -442,31 +442,34 @@ function ArchiveModal({
 function AgencyMetricsRow({ totalClients, totalCampaigns, activeClients }: { totalClients: number, totalCampaigns: number, activeClients: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-      <div className="bg-white rounded-xl p-5 flex items-center gap-4 transition-shadow hover:shadow-md" style={{ border: '1px solid #ECECE6' }}>
-        <div className="size-12 rounded-lg flex items-center justify-center text-[#5B47E0]" style={{ background: 'rgba(91,71,224,0.1)' }}>
-          <Building2 className="size-6" />
-        </div>
-        <div>
-          <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Total Clients</p>
-          <p className="text-2xl font-heading font-bold text-foreground leading-none mt-1">{totalClients}</p>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl p-5 flex items-center gap-4 transition-shadow hover:shadow-md" style={{ border: '1px solid #ECECE6' }}>
-        <div className="size-12 rounded-lg flex items-center justify-center text-[#10D9A0]" style={{ background: 'rgba(16,217,160,0.1)' }}>
-          <CheckCircle2 className="size-6" />
-        </div>
-        <div>
-          <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Active Clients</p>
-          <p className="text-2xl font-heading font-bold text-foreground leading-none mt-1">{activeClients}</p>
+      <div className="bg-white rounded-none p-6 flex flex-col justify-center transition-shadow hover:shadow-md relative overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-indigo-50/50 to-transparent pointer-events-none" />
+        <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Total Clients</p>
+        <div className="flex items-end justify-between mt-2">
+          <p className="text-3xl font-heading font-bold text-foreground leading-none">{totalClients}</p>
+          <div className="size-8 rounded-none flex items-center justify-center text-indigo-600 bg-indigo-50/50">
+            <Building2 className="size-4" />
+          </div>
         </div>
       </div>
-      <div className="bg-white rounded-xl p-5 flex items-center gap-4 transition-shadow hover:shadow-md" style={{ border: '1px solid #ECECE6' }}>
-        <div className="size-12 rounded-lg flex items-center justify-center text-[#FF7A59]" style={{ background: 'rgba(255,122,89,0.1)' }}>
-          <TrendingUp className="size-6" />
+      <div className="bg-white rounded-none p-6 flex flex-col justify-center transition-shadow hover:shadow-md relative overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-emerald-50/50 to-transparent pointer-events-none" />
+        <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Active Clients</p>
+        <div className="flex items-end justify-between mt-2">
+          <p className="text-3xl font-heading font-bold text-foreground leading-none">{activeClients}</p>
+          <div className="size-8 rounded-none flex items-center justify-center text-emerald-600 bg-emerald-50/50">
+            <CheckCircle2 className="size-4" />
+          </div>
         </div>
-        <div>
-          <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Total Campaigns</p>
-          <p className="text-2xl font-heading font-bold text-foreground leading-none mt-1">{totalCampaigns}</p>
+      </div>
+      <div className="bg-white rounded-none p-6 flex flex-col justify-center transition-shadow hover:shadow-md relative overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-rose-50/50 to-transparent pointer-events-none" />
+        <p className="text-[13px] text-muted-foreground font-semibold uppercase tracking-wide">Total Campaigns</p>
+        <div className="flex items-end justify-between mt-2">
+          <p className="text-3xl font-heading font-bold text-foreground leading-none">{totalCampaigns}</p>
+          <div className="size-8 rounded-none flex items-center justify-center text-rose-600 bg-rose-50/50">
+            <TrendingUp className="size-4" />
+          </div>
         </div>
       </div>
     </div>
@@ -493,7 +496,15 @@ export default function ClientsPage() {
   const deleteClient = useDeleteClient();
   const restoreClient = useRestoreClient();
 
-  const clients   = data?.data ?? [];
+  const rawClients = data?.data ?? [];
+  const clients = useMemo(() => {
+    let list = [...rawClients];
+    if (sortBy === 'campaigns') {
+      list.sort((a, b) => (b._count?.campaigns || 0) - (a._count?.campaigns || 0));
+    }
+    return list;
+  }, [rawClients, sortBy]);
+  
   const total     = data?.meta?.total ?? 0;
   const deletingClient = clients.find((c) => c.id === deletingClientId) ?? null;
 
@@ -527,7 +538,7 @@ export default function ClientsPage() {
           {canEdit && (
             <button
               onClick={() => setFormOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
             >
               <Plus className="size-3.5" />
@@ -551,7 +562,7 @@ export default function ClientsPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" as const }}
-        className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center bg-white p-3 rounded-xl"
+        className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center bg-white p-3 rounded-none"
         style={{ border: '1px solid #ECECE6' }}
       >
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
@@ -560,7 +571,7 @@ export default function ClientsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <input
               placeholder="Search clients…"
-              className="pl-9 pr-3 h-9 w-48 sm:w-56 rounded-lg text-sm bg-white outline-none transition-all"
+              className="pl-9 pr-3 h-9 w-48 sm:w-56 rounded-none text-sm bg-white outline-none transition-all"
               style={{ border: '1px solid #ECECE6' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -575,7 +586,7 @@ export default function ClientsPage() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="h-9 px-3 rounded-lg text-sm bg-white outline-none transition-all shrink-0 cursor-pointer appearance-none"
+            className="h-9 px-3 rounded-none text-sm bg-white outline-none transition-all shrink-0 cursor-pointer appearance-none"
             style={{ border: '1px solid #ECECE6', backgroundImage: `url('data:image/svg+xml;utf8,<svg fill="none" viewBox="0 0 24 24" stroke="%239CA3AF" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
             onFocus={inputFocus} onBlur={inputBlur}
           >
@@ -589,7 +600,7 @@ export default function ClientsPage() {
           <select
             value={services}
             onChange={(e) => setServices(e.target.value)}
-            className="h-9 px-3 pr-8 rounded-lg text-sm bg-white outline-none transition-all shrink-0 cursor-pointer appearance-none"
+            className="h-9 px-3 pr-8 rounded-none text-sm bg-white outline-none transition-all shrink-0 cursor-pointer appearance-none"
             style={{ border: '1px solid #ECECE6', backgroundImage: `url('data:image/svg+xml;utf8,<svg fill="none" viewBox="0 0 24 24" stroke="%239CA3AF" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
             onFocus={inputFocus} onBlur={inputBlur}
           >
@@ -603,7 +614,7 @@ export default function ClientsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="h-9 px-3 pr-8 rounded-lg text-sm bg-white outline-none transition-all cursor-pointer appearance-none"
+            className="h-9 px-3 pr-8 rounded-none text-sm bg-white outline-none transition-all cursor-pointer appearance-none"
             style={{ border: '1px solid #ECECE6', backgroundImage: `url('data:image/svg+xml;utf8,<svg fill="none" viewBox="0 0 24 24" stroke="%239CA3AF" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
             onFocus={inputFocus} onBlur={inputBlur}
           >
@@ -613,12 +624,12 @@ export default function ClientsPage() {
           </select>
 
           {/* View toggle */}
-          <div className="flex rounded-lg p-0.5 gap-0.5" style={{ border: '1px solid #ECECE6', background: 'rgba(0,0,0,0.02)' }}>
+          <div className="flex rounded-none p-0.5 gap-0.5" style={{ border: '1px solid #ECECE6', background: 'rgba(0,0,0,0.02)' }}>
             {(['grid', 'list'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className="rounded-md px-2.5 py-1.5 transition-all"
+                className="rounded-none px-2.5 py-1.5 transition-all"
                 style={viewMode === mode ? { background: '#5B47E0', color: '#fff' } : { color: '#9CA3AF' }}
               >
                 {mode === 'grid' ? <LayoutGrid className="size-3.5" /> : <List className="size-3.5" />}
@@ -632,7 +643,7 @@ export default function ClientsPage() {
       {isLoading ? (
         <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" : "space-y-2"}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl animate-pulse" style={{ border: '1px solid #ECECE6', height: viewMode === 'list' ? '64px' : '180px' }} />
+            <div key={i} className="bg-white rounded-none animate-pulse" style={{ border: '1px solid #ECECE6', height: viewMode === 'list' ? '64px' : '180px' }} />
           ))}
         </div>
       ) : clients.length === 0 ? (
@@ -640,10 +651,10 @@ export default function ClientsPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" as const }}
-          className="bg-white rounded-xl py-20 flex flex-col items-center gap-4"
+          className="bg-white rounded-none py-20 flex flex-col items-center gap-4"
           style={{ border: '1px solid #ECECE6' }}
         >
-          <div className="size-16 rounded-xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
+          <div className="size-16 rounded-none flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.08)' }}>
             <Building2 className="size-8" style={{ color: '#5B47E0' }} />
           </div>
           <div className="text-center">
@@ -657,7 +668,7 @@ export default function ClientsPage() {
           {!search && !status && !services && canEdit && (
             <button
               onClick={() => setFormOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-sm font-semibold text-white"
+              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-semibold text-white"
               style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
             >
               <Plus className="size-3.5" />
@@ -682,7 +693,7 @@ export default function ClientsPage() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: i * 0.04, ease: "easeOut" as const }}
-                className={`group bg-white rounded-xl p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden flex flex-col h-full ${isArchived ? 'opacity-70' : ''}`}
+                className={`group bg-white rounded-none p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden flex flex-col h-full ${isArchived ? 'opacity-70' : ''}`}
                 style={{ border: '1px solid #ECECE6' }}
               >
                 <div className="flex items-start justify-between mb-5 gap-3">
@@ -691,11 +702,11 @@ export default function ClientsPage() {
                       <img 
                         src={client.logoUrl} 
                         alt={client.name} 
-                        className="size-14 rounded-lg object-cover shadow-sm border border-gray-100 shrink-0" 
+                        className="size-14 rounded-xl object-cover shadow-sm border border-gray-100 shrink-0" 
                       />
                     ) : (
                       <div
-                        className="size-14 rounded-lg flex items-center justify-center text-xl font-bold text-white shadow-sm shrink-0"
+                        className="size-14 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-sm shrink-0"
                         style={{ background: isArchived ? '#9CA3AF' : gradient }}
                       >
                         {client.name.charAt(0).toUpperCase()}
@@ -726,12 +737,12 @@ export default function ClientsPage() {
                 {/* Service Tags */}
                 <div className="flex flex-wrap gap-2 mb-6 flex-grow content-start">
                   {displayTags.map(tag => (
-                    <span key={tag} className="px-2.5 py-1 text-[11px] font-semibold bg-[#5B47E0]/5 text-[#5B47E0] rounded-md border border-[#5B47E0]/10">
+                    <span key={tag} className="px-2.5 py-1 text-[11px] font-semibold bg-[#5B47E0]/5 text-[#5B47E0] rounded-none border border-[#5B47E0]/10">
                       {tag}
                     </span>
                   ))}
                   {extraTags > 0 && (
-                    <span className="px-2.5 py-1 text-[11px] font-semibold bg-gray-50 text-gray-500 rounded-md border border-gray-100">
+                    <span className="px-2.5 py-1 text-[11px] font-semibold bg-gray-50 text-gray-500 rounded-none border border-gray-100">
                       +{extraTags}
                     </span>
                   )}
@@ -743,7 +754,7 @@ export default function ClientsPage() {
                     {client._count.campaigns} campaign{client._count.campaigns !== 1 ? "s" : ""}
                   </span>
                   <span
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-none"
                     style={isActive
                       ? { background: 'rgba(16,217,160,0.10)', color: '#059669' }
                       : isArchived 
@@ -759,7 +770,7 @@ export default function ClientsPage() {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
+        <div className="bg-white rounded-none overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
           <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg,#5B47E0,#10D9A0)' }} />
           <div
             className="grid grid-cols-[1fr_120px_80px_100px_40px] gap-4 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
@@ -817,12 +828,12 @@ export default function ClientsPage() {
                 {/* Services Column */}
                 <div className="flex flex-wrap gap-1">
                   {displayTags.map(tag => (
-                    <span key={tag} className="px-1.5 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 rounded">
+                    <span key={tag} className="px-1.5 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 rounded-none">
                       {tag}
                     </span>
                   ))}
                   {extraTags > 0 && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 rounded">
+                    <span className="px-1.5 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 rounded-none">
                       +{extraTags}
                     </span>
                   )}
@@ -834,7 +845,7 @@ export default function ClientsPage() {
                 {/* Status Column */}
                 <div>
                   <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-none"
                     style={isActive
                       ? { background: 'rgba(16,217,160,0.10)', color: '#059669' }
                       : isArchived 

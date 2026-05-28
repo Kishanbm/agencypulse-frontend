@@ -95,12 +95,9 @@ function ScorecardStrip() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: i * 0.06, ease: "easeOut" as const }}
-            className="bg-white rounded-2xl overflow-hidden hover:shadow-md transition-shadow relative"
-            style={{ border: '1px solid #ECECE6' }}
+            className="bg-white rounded-sm overflow-hidden hover:shadow-md transition-all relative"
+            style={{ border: '1px solid #E5E7EB' }}
           >
-            {/* Coloured top bar */}
-            <div className="h-1 w-full" style={{ background: effectiveAccent }} />
-
             <div className="p-4">
               <div className="flex items-start gap-3">
                 {/* Icon */}

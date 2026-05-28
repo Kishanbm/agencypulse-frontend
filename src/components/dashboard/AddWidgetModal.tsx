@@ -49,7 +49,8 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
     );
   };
 
-  const canProceed = platform !== "" && metricKeys.length > 0 && title.trim() !== "";
+  const isGoogleSheets = platform === "GOOGLE_SHEETS";
+  const canProceed = platform !== "" && title.trim() !== "" && (isGoogleSheets || metricKeys.length > 0);
 
   const handleAdd = async () => {
     if (!canProceed || !platform) return;
@@ -59,7 +60,7 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
       await onAdd({
         widgetType,
         platform: platform as IntegrationPlatform,
-        metricKeys,
+        metricKeys: isGoogleSheets ? ["value"] : metricKeys,
         config: { title: title.trim() },
       });
       onClose();
@@ -155,8 +156,8 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
             )}
           </div>
 
-          {/* Metrics */}
-          {platform && (
+          {/* Metrics (hidden for Google Sheets — configured per-widget after adding) */}
+          {platform && !isGoogleSheets && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Metrics
@@ -194,6 +195,13 @@ export function AddWidgetModal({ onClose, onAdd, connectedPlatforms }: AddWidget
               {metricKeys.length === 0 && !metricsLoading && (
                 <p className="text-xs text-muted-foreground">Select at least one metric</p>
               )}
+            </div>
+          )}
+
+          {/* Google Sheets info note */}
+          {isGoogleSheets && (
+            <div className="rounded-lg px-3.5 py-3 text-xs text-muted-foreground" style={{ background: "rgba(91,71,224,0.06)", border: "1px solid rgba(91,71,224,0.15)" }}>
+              After adding the widget, click it in the dashboard editor to configure your spreadsheet, sheet tab, and column mapping.
             </div>
           )}
 

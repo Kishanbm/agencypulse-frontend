@@ -49,7 +49,7 @@ function Avatar({ name, size = 9 }: { name: string; size?: number }) {
   const sizeClass = `size-${size}`;
   return (
     <div
-      className={`${sizeClass} rounded-xl shrink-0 flex items-center justify-center text-white text-xs font-bold`}
+      className={`${sizeClass} rounded-none shrink-0 flex items-center justify-center text-white text-xs font-bold`}
       style={{ background: getGradient(name) }}
     >
       {initials.toUpperCase()}
@@ -205,12 +205,12 @@ function SectionCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: delay ?? 0, ease: "easeOut" as const }}
-      className="bg-white rounded-2xl overflow-hidden"
+      className="bg-white rounded-none overflow-hidden"
       style={{ border: '1px solid #ECECE6' }}
     >
       <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #ECECE6' }}>
         <div className="flex items-center gap-2.5">
-          <div className="size-7 rounded-lg flex items-center justify-center" style={{ background: iconBg }}>
+          <div className="size-7 rounded-none flex items-center justify-center" style={{ background: iconBg }}>
             <Icon className="size-3.5" style={{ color: iconColor }} />
           </div>
           <h2 className="font-heading font-semibold text-sm text-foreground">{title}</h2>
@@ -266,14 +266,14 @@ function AssignDialog({ open, onOpenChange, clientId, assignedUserIds }: AssignD
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.97 }}
             transition={{ duration: 0.25, ease: "easeOut" as const }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="relative bg-white rounded-none shadow-2xl w-full max-w-md overflow-hidden"
             style={{ border: '1px solid #ECECE6' }}
           >
             <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #5B47E0, #7C3AED)' }} />
             <div className="p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.10)' }}>
+                  <div className="size-9 rounded-none flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.10)' }}>
                     <UserPlus className="size-4" style={{ color: '#5B47E0' }} />
                   </div>
                   <div>
@@ -281,13 +281,13 @@ function AssignDialog({ open, onOpenChange, clientId, assignedUserIds }: AssignD
                     <p className="text-xs text-muted-foreground">Only active unassigned staff shown</p>
                   </div>
                 </div>
-                <button onClick={() => { setSelectedId(""); onOpenChange(false); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+                <button onClick={() => { setSelectedId(""); onOpenChange(false); }} className="p-1.5 rounded-none hover:bg-muted transition-colors text-muted-foreground">
                   <X className="size-4" />
                 </button>
               </div>
 
               {availableStaff.length === 0 ? (
-                <div className="py-4 text-center text-sm text-muted-foreground rounded-xl" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #ECECE6' }}>
+                <div className="py-4 text-center text-sm text-muted-foreground rounded-none" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #ECECE6' }}>
                   All active staff are already assigned or there are no active staff yet.
                 </div>
               ) : (
@@ -296,9 +296,9 @@ function AssignDialog({ open, onOpenChange, clientId, assignedUserIds }: AssignD
                   <select
                     value={selectedId}
                     onChange={(e) => setSelectedId(e.target.value)}
-                    className="w-full h-10 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none"
+                    className="w-full h-10 px-3 text-sm rounded-none bg-background text-foreground focus:outline-none appearance-none"
                     style={{ border: '1px solid #ECECE6' }}
-                    onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.15)'; e.currentTarget.style.borderColor = '#5B47E0'; }}
+                    onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.15)'; e.currentTarget.style.borderColor = '#0F172A'; }}
                     onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#ECECE6'; }}
                   >
                     <option value="">Select a staff member…</option>
@@ -314,7 +314,7 @@ function AssignDialog({ open, onOpenChange, clientId, assignedUserIds }: AssignD
               <div className="flex gap-2 justify-end pt-1">
                 <button
                   onClick={() => { setSelectedId(""); onOpenChange(false); }}
-                  className="h-9 px-4 rounded-xl text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
+                  className="h-9 px-4 rounded-none text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
                   style={{ border: '1px solid #ECECE6' }}
                 >
                   Cancel
@@ -322,7 +322,7 @@ function AssignDialog({ open, onOpenChange, clientId, assignedUserIds }: AssignD
                 <button
                   onClick={handleAssign}
                   disabled={!selectedId || assign.isPending || availableStaff.length === 0}
-                  className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="h-9 px-4 rounded-none text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
                 >
                   {assign.isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -370,14 +370,14 @@ function InvitePortalDialog({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.97 }}
             transition={{ duration: 0.25, ease: "easeOut" as const }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="relative bg-white rounded-none shadow-2xl w-full max-w-md overflow-hidden"
             style={{ border: '1px solid #ECECE6' }}
           >
             <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #10D9A0, #06b6d4)' }} />
             <div className="p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,217,160,0.10)' }}>
+                  <div className="size-9 rounded-none flex items-center justify-center" style={{ background: 'rgba(16,217,160,0.10)' }}>
                     <Mail className="size-4" style={{ color: '#10D9A0' }} />
                   </div>
                   <div>
@@ -387,7 +387,7 @@ function InvitePortalDialog({
                 </div>
                 <button
                   onClick={() => { setForm({ firstName: "", lastName: "", email: "" }); onOpenChange(false); }}
-                  className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                  className="p-1.5 rounded-none hover:bg-muted transition-colors text-muted-foreground"
                 >
                   <X className="size-4" />
                 </button>
@@ -407,7 +407,7 @@ function InvitePortalDialog({
                       value={form[key as keyof typeof form]}
                       onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                       placeholder={placeholder}
-                      className="w-full h-10 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none"
+                      className="w-full h-10 px-3 text-sm rounded-none bg-background text-foreground focus:outline-none"
                       style={{ border: '1px solid #ECECE6' }}
                       onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16,217,160,0.12)'; e.currentTarget.style.borderColor = '#10D9A0'; }}
                       onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#ECECE6'; }}
@@ -425,7 +425,7 @@ function InvitePortalDialog({
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   placeholder="john@nike.com"
-                  className="w-full h-10 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none"
+                  className="w-full h-10 px-3 text-sm rounded-none bg-background text-foreground focus:outline-none"
                   style={{ border: '1px solid #ECECE6' }}
                   onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16,217,160,0.12)'; e.currentTarget.style.borderColor = '#10D9A0'; }}
                   onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#ECECE6'; }}
@@ -435,7 +435,7 @@ function InvitePortalDialog({
               <div className="flex gap-2 justify-end pt-1">
                 <button
                   onClick={() => { setForm({ firstName: "", lastName: "", email: "" }); onOpenChange(false); }}
-                  className="h-9 px-4 rounded-xl text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
+                  className="h-9 px-4 rounded-none text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
                   style={{ border: '1px solid #ECECE6' }}
                 >
                   Cancel
@@ -443,7 +443,7 @@ function InvitePortalDialog({
                 <button
                   onClick={handleSubmit}
                   disabled={!form.firstName.trim() || !form.email.trim() || invite.isPending}
-                  className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="h-9 px-4 rounded-none text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #10D9A0, #06b6d4)' }}
                 >
                   {invite.isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -482,13 +482,13 @@ function ConfirmDialog({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.97 }}
             transition={{ duration: 0.25, ease: "easeOut" as const }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            className="relative bg-white rounded-none shadow-2xl w-full max-w-sm overflow-hidden"
             style={{ border: '1px solid rgba(244,63,94,0.25)' }}
           >
             <div className="h-1 w-full" style={{ background: '#f43f5e' }} />
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(244,63,94,0.10)' }}>
+                <div className="size-9 rounded-none flex items-center justify-center" style={{ background: 'rgba(244,63,94,0.10)' }}>
                   <Trash2 className="size-4" style={{ color: '#f43f5e' }} />
                 </div>
                 <h2 className="font-heading font-semibold text-base">{title}</h2>
@@ -497,7 +497,7 @@ function ConfirmDialog({
               <div className="flex gap-2 justify-end pt-1">
                 <button
                   onClick={onClose}
-                  className="h-9 px-4 rounded-xl text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
+                  className="h-9 px-4 rounded-none text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
                   style={{ border: '1px solid #ECECE6' }}
                 >
                   Cancel
@@ -505,7 +505,7 @@ function ConfirmDialog({
                 <button
                   onClick={onConfirm}
                   disabled={isPending}
-                  className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="h-9 px-4 rounded-none text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #f43f5e, #fb7185)' }}
                 >
                   {isPending && <Loader2 className="size-3.5 animate-spin" />}
@@ -583,7 +583,7 @@ export default function ClientTeamPage() {
           canEdit ? (
             <button
               onClick={() => setAssignOpen(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
             >
               <UserPlus className="size-3.5" />
@@ -598,14 +598,14 @@ export default function ClientTeamPage() {
           </div>
         ) : !assignments || assignments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <div className="size-10 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(91,71,224,0.06)' }}>
+            <div className="size-10 rounded-none flex items-center justify-center mb-3" style={{ background: 'rgba(91,71,224,0.06)' }}>
               <Users className="size-5 text-muted-foreground/40" />
             </div>
             <p className="text-sm text-muted-foreground">No staff assigned yet.</p>
             {canEdit && (
               <button
                 onClick={() => setAssignOpen(true)}
-                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white"
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-semibold text-white"
                 style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
               >
                 <Plus className="size-3.5" />
@@ -631,7 +631,7 @@ export default function ClientTeamPage() {
                   <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
                 </div>
                 <span
-                  className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-none"
                   style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0' }}
                 >
                   Staff
@@ -640,7 +640,7 @@ export default function ClientTeamPage() {
                 {canEdit && (
                   <button
                     onClick={() => setRemovingUserId(assignment.user.id)}
-                    className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                    className="p-1.5 rounded-none opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
@@ -663,7 +663,7 @@ export default function ClientTeamPage() {
           canEdit ? (
             <button
               onClick={() => setInvitePortalOpen(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #10D9A0, #06b6d4)' }}
             >
               <Mail className="size-3.5" />
@@ -684,14 +684,14 @@ export default function ClientTeamPage() {
           </div>
         ) : !portalUsers || portalUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <div className="size-10 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(16,217,160,0.06)' }}>
+            <div className="size-10 rounded-none flex items-center justify-center mb-3" style={{ background: 'rgba(16,217,160,0.06)' }}>
               <Globe className="size-5 text-muted-foreground/40" />
             </div>
             <p className="text-sm text-muted-foreground">No portal users yet.</p>
             {canEdit && (
               <button
                 onClick={() => setInvitePortalOpen(true)}
-                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white"
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-semibold text-white"
                 style={{ background: 'linear-gradient(135deg, #10D9A0, #06b6d4)' }}
               >
                 <Plus className="size-3.5" />
@@ -719,7 +719,7 @@ export default function ClientTeamPage() {
                     <p className="text-xs text-muted-foreground truncate">{pu.user.email}</p>
                   </div>
                   <span
-                    className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-none"
                     style={isPending
                       ? { background: 'rgba(245,165,36,0.12)', color: '#d97706' }
                       : { background: 'rgba(16,217,160,0.12)', color: '#10D9A0' }
@@ -732,7 +732,7 @@ export default function ClientTeamPage() {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {isPending && (
                         <button
-                          className="h-7 px-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1 disabled:opacity-50"
+                          className="h-7 px-2 rounded-none text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1 disabled:opacity-50"
                           disabled={resend.isPending}
                           onClick={() => resend.mutate(pu.user.email)}
                         >
@@ -742,7 +742,7 @@ export default function ClientTeamPage() {
                       )}
                       <button
                         onClick={() => setRevokingUserId(pu.user.id)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-none text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="size-3.5" />
                       </button>

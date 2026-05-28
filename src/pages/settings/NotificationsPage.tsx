@@ -189,337 +189,307 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-5 lg:p-7 space-y-6 pb-12 max-w-[900px] mx-auto">
+    <div className="min-h-screen bg-[#F5F5F0] flex flex-col">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" as const }}
-        className="flex items-start justify-between gap-4 flex-wrap"
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="size-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(91,71,224,0.10)' }}
-          >
-            <Bell className="size-5" style={{ color: '#5B47E0' }} />
-          </div>
-          <div>
-            <h1 className="font-heading font-bold text-xl sm:text-2xl tracking-tight text-foreground">
-              Notifications
-              {total > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">({total})</span>
-              )}
-            </h1>
-          </div>
+      <div className="bg-white border-b border-[#ECECE6] shrink-0">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-2">
+          <h1 className="font-heading font-bold text-3xl sm:text-4xl tracking-tight text-slate-900">
+            Notifications
+            {total > 0 && <span className="ml-3 text-lg font-normal text-slate-500">({total})</span>}
+          </h1>
         </div>
-        <div className="flex items-center gap-2">
-          {items.length > 0 && (
-            <button
-              onClick={selectMode ? exitSelectMode : () => setSelectMode(true)}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-semibold transition-all"
-              style={selectMode ? {
-                border: '1px solid rgba(91,71,224,0.30)',
-                color: '#5B47E0',
-                background: 'rgba(91,71,224,0.10)',
-                backdropFilter: 'blur(8px)',
-              } : {
-                border: '1px solid rgba(0,0,0,0.12)',
-                color: 'var(--foreground)',
-                background: 'rgba(255,255,255,0.70)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              {selectMode ? 'Cancel' : 'Select'}
-            </button>
-          )}
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-semibold transition-all"
-              style={{
-                border: '1px solid rgba(0,0,0,0.12)',
-                color: 'var(--foreground)',
-                background: 'rgba(255,255,255,0.70)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <CheckCheck className="size-3.5" />
-              Mark all read
-            </button>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl p-1 w-fit" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid #ECECE6' }}>
-        {(['all', 'unread'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => switchTab(t)}
-            className="rounded-lg px-5 py-1.5 text-sm font-medium transition-all capitalize"
-            style={tab === t
-              ? { background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', color: 'var(--foreground)' }
-              : { color: 'var(--muted-foreground)' }
-            }
-          >
-            {t}
-            {t === 'unread' && unreadCount > 0 && (
-              <span
-                className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
-                style={{ background: '#f43f5e' }}
-              >
-                {unreadCount}
-              </span>
-            )}
-          </button>
-        ))}
       </div>
 
-      {/* Bulk action bar */}
-      <AnimatePresence>
-        {someSelected && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: "easeOut" as const }}
-            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl"
-            style={{ background: 'rgba(91,71,224,0.06)', border: '1px solid rgba(91,71,224,0.18)' }}
-          >
-            <span className="text-sm font-semibold" style={{ color: '#5B47E0' }}>
-              {selected.size} selected
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleBulkMarkRead}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
-                style={{ background: 'rgba(91,71,224,0.10)', color: '#5B47E0', border: '1px solid rgba(91,71,224,0.20)' }}
-              >
-                <CheckCheck className="size-3.5" />
-                Mark as read
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
-                style={{ background: 'rgba(244,63,94,0.08)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.20)' }}
-              >
-                <Trash2 className="size-3.5" />
-                Delete selected
-              </button>
-              <button
-                onClick={exitSelectMode}
-                className="h-8 px-3 rounded-lg text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
-                style={{ border: '1px solid #ECECE6' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* List */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden"
-        style={{ border: '1px solid #ECECE6' }}
-      >
-        {isLoading ? (
-          <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-4 px-5 py-4">
-                <div className="size-10 animate-pulse rounded-xl bg-muted shrink-0" />
-                <div className="flex-1 space-y-2 py-1">
-                  <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-72 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="py-20 text-center">
-            <div
-              className="mx-auto mb-4 size-14 flex items-center justify-center rounded-2xl"
-              style={{ background: 'rgba(91,71,224,0.08)' }}
-            >
-              <Bell className="size-7" style={{ color: '#5B47E0' }} />
-            </div>
-            <p className="text-sm font-semibold text-foreground">
-              {tab === 'unread' ? 'No unread notifications' : "You're all caught up"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {tab === 'unread'
-                ? 'All notifications have been read.'
-                : 'New notifications will appear here.'}
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Select-all header row — only visible in select mode */}
-            <AnimatePresence initial={false}>
-              {selectMode && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' as const }}
-                  className="overflow-hidden"
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
+        {/* Main Unified Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="bg-white overflow-hidden flex-1 flex flex-col"
+          style={{ border: '1px solid #ECECE6', borderRadius: 0, boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05), 0 16px 32px -4px rgba(0,0,0,0.1)' }}
+        >
+          {/* Card Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 bg-gray-50 border-b border-[#ECECE6]">
+            {/* Tabs */}
+            <div className="flex gap-1 rounded-none p-1 bg-white border border-[#ECECE6]">
+              {(['all', 'unread'] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => switchTab(t)}
+                  className="rounded-none px-5 py-1.5 text-sm font-bold transition-all capitalize cursor-pointer"
+                  style={tab === t
+                    ? { background: 'slate-900', color: '#0f172a', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: '1px solid #ECECE6' }
+                    : { color: 'var(--muted-foreground)', border: '1px solid transparent' }
+                  }
                 >
-                  <div
-                    className="flex items-center gap-3 px-5 py-3"
-                    style={{ borderBottom: '1px solid #F5F5F0', background: 'rgba(91,71,224,0.03)' }}
-                  >
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={toggleSelectAll}
-                        className="size-4 rounded cursor-pointer"
-                        style={{ accentColor: '#5B47E0' }}
-                      />
-                      <span className="text-xs font-semibold" style={{ color: '#5B47E0' }}>
-                        {allSelected ? 'Deselect all' : 'Select all'}
+                  <span className="flex items-center gap-2">
+                    {t}
+                    {t === 'unread' && unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 font-bold rounded-none">
+                        {unreadCount}
                       </span>
-                    </label>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-            <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
-              {items.map((n, i) => {
-                const meta = TYPE_META[n.type] ?? {
-                  icon: Bell, color: '#6b7280', bg: 'rgba(107,114,128,0.10)', label: n.type,
-                };
-                const Icon = meta.icon;
-                const isChecked = selected.has(n.id);
-                return (
-                  <motion.div
-                    key={n.id}
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: i * 0.03, ease: "easeOut" as const }}
-                    className="flex w-full items-start gap-3 px-5 py-4 transition-colors"
-                    style={isChecked
-                      ? { background: 'rgba(91,71,224,0.04)' }
-                      : !n.isRead
-                        ? { background: 'rgba(91,71,224,0.02)' }
-                        : undefined
-                    }
-                  >
-                    {/* Checkbox — only in select mode */}
-                    <AnimatePresence initial={false}>
-                      {selectMode && (
-                        <motion.div
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
-                          transition={{ duration: 0.15, ease: 'easeOut' as const }}
-                          className="flex items-center pt-1 shrink-0 overflow-hidden"
-                        >
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {items.length > 0 && (
+                <button
+                  onClick={selectMode ? exitSelectMode : () => setSelectMode(true)}
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-none text-sm font-bold transition-all cursor-pointer"
+                  style={selectMode ? {
+                    border: '1px solid #5B47E0',
+                    color: '#5B47E0',
+                    background: 'rgba(91,71,224,0.05)',
+                  } : {
+                    border: '1px solid #0f172a',
+                    color: '#0f172a',
+                    background: 'transparent',
+                  }}
+                >
+                  {selectMode ? 'Cancel' : 'Select'}
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-none text-sm font-bold transition-all border border-slate-900 bg-slate-900 text-white hover:opacity-90 cursor-pointer"
+                >
+                  <CheckCheck className="size-3.5" />
+                  Mark all read
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bulk action bar */}
+          <AnimatePresence>
+            {someSelected && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="overflow-hidden bg-slate-50 border-b border-slate-200"
+              >
+                <div className="flex items-center justify-between gap-3 px-6 py-3">
+                  <span className="text-sm font-bold text-slate-900">
+                    {selected.size} selected
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleBulkMarkRead}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-bold transition-colors bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <CheckCheck className="size-3.5" />
+                      Mark as read
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-none text-xs font-bold transition-colors bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete selected
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* List */}
+          <div className="flex-1 flex flex-col min-h-0 bg-white">
+            {isLoading ? (
+              <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-4 px-6 py-5">
+                    <div className="size-10 animate-pulse rounded-none bg-slate-100 shrink-0" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="h-4 w-48 animate-pulse rounded-none bg-slate-100" />
+                      <div className="h-3 w-72 animate-pulse rounded-none bg-slate-100" />
+                      <div className="h-3 w-16 animate-pulse rounded-none bg-slate-100" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-24 text-center flex-1 flex flex-col items-center justify-center">
+                <div className="size-16 flex items-center justify-center mb-4 bg-slate-50 border border-slate-200 rounded-none shrink-0">
+                  <Bell className="size-8 text-slate-400" />
+                </div>
+                <p className="text-lg font-bold text-slate-900">
+                  {tab === 'unread' ? 'No unread notifications' : "You're all caught up"}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  {tab === 'unread'
+                    ? 'All notifications have been read.'
+                    : 'New notifications will appear here.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Select-all header row */}
+                <AnimatePresence initial={false}>
+                  {selectMode && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-b border-slate-100">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSelect(n.id)}
-                            className="size-4 rounded cursor-pointer mr-1"
-                            style={{ accentColor: '#5B47E0' }}
+                            checked={allSelected}
+                            onChange={toggleSelectAll}
+                            className="size-4 rounded-none cursor-pointer border-slate-300"
+                            style={{ accentColor: '#0f172a' }}
                           />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Clickable content area */}
-                    <button
-                      onClick={() => handleMarkRead(n)}
-                      className="flex flex-1 items-start gap-4 text-left min-w-0"
-                    >
-                      {/* Icon */}
-                      <div
-                        className="size-10 shrink-0 rounded-xl flex items-center justify-center"
-                        style={{ background: meta.bg }}
-                      >
-                        <Icon className="size-5" style={{ color: meta.color }} />
-                      </div>
-
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-4">
-                          <p className={n.isRead ? 'text-sm leading-snug text-muted-foreground' : 'text-sm leading-snug font-semibold text-foreground'}>
-                            {n.title}
-                          </p>
-                          <span className="shrink-0 text-xs text-muted-foreground/60 pt-0.5" title={absoluteTime(n.createdAt)}>
-                            {relativeTime(n.createdAt)}
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            {allSelected ? 'Deselect all' : 'Select all'}
                           </span>
-                        </div>
-                        {n.message && (
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                            {n.message}
-                          </p>
-                        )}
-                        <span
-                          className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                          style={{ background: meta.bg, color: meta.color }}
-                        >
-                          {meta.label}
-                        </span>
+                        </label>
                       </div>
-                    </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-                    {/* Right: unread dot + delete */}
-                    <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
-                      {!n.isRead && (
-                        <div className="size-2 rounded-full" style={{ background: '#5B47E0' }} />
-                      )}
-                      <button
-                        onClick={(e) => handleDelete(e, n)}
-                        className="rounded-lg p-1 transition-colors hover:bg-red-50"
-                        style={{ color: '#f43f5e' }}
-                        title="Delete notification"
+                <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
+                  {items.map((n, i) => {
+                    const meta = TYPE_META[n.type] ?? {
+                      icon: Bell, color: '#64748b', bg: '#f8fafc', label: n.type,
+                    };
+                    const Icon = meta.icon;
+                    const isChecked = selected.has(n.id);
+                    return (
+                      <motion.div
+                        key={n.id}
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.03, ease: "easeOut" }}
+                        className="flex w-full items-start gap-4 px-6 py-5 transition-colors hover:bg-slate-50"
+                        style={isChecked
+                          ? { background: 'rgba(15,23,42,0.02)' }
+                          : !n.isRead
+                            ? { background: 'rgba(91,71,224,0.02)' }
+                            : undefined
+                        }
                       >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </>
-        )}
+                        {/* Checkbox */}
+                        <AnimatePresence initial={false}>
+                          {selectMode && (
+                            <motion.div
+                              initial={{ opacity: 0, width: 0 }}
+                              animate={{ opacity: 1, width: 'auto' }}
+                              exit={{ opacity: 0, width: 0 }}
+                              transition={{ duration: 0.15, ease: 'easeOut' }}
+                              className="flex items-center pt-2 shrink-0 overflow-hidden pr-2"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelect(n.id)}
+                                className="size-4 rounded-none cursor-pointer border-slate-300"
+                                style={{ accentColor: '#0f172a' }}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid #ECECE6', background: 'rgba(0,0,0,0.01)' }}>
-            <p className="text-xs text-muted-foreground">
-              Showing{' '}
-              <span className="font-medium text-foreground">{(page - 1) * limit + 1}–{Math.min(page * limit, total)}</span>
-              {' '}of <span className="font-medium text-foreground">{total}</span>
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                className="size-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
-                style={{ border: '1px solid #ECECE6' }}
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                <ChevronLeft className="size-3.5" />
-              </button>
-              <span className="px-2 text-xs text-muted-foreground">{page} / {totalPages}</span>
-              <button
-                className="size-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
-                style={{ border: '1px solid #ECECE6' }}
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight className="size-3.5" />
-              </button>
-            </div>
+                        {/* Clickable content area */}
+                        <button
+                          onClick={() => handleMarkRead(n)}
+                          className="flex flex-1 items-start gap-5 text-left min-w-0 cursor-pointer"
+                        >
+                          {/* Icon */}
+                          <div
+                            className="size-12 shrink-0 rounded-none flex items-center justify-center border"
+                            style={{ background: meta.bg, borderColor: `${meta.color}20` }}
+                          >
+                            <Icon className="size-5" style={{ color: meta.color }} />
+                          </div>
+
+                          {/* Content */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-4">
+                              <p className={n.isRead ? 'text-base font-medium text-slate-700' : 'text-base font-bold text-slate-900'}>
+                                {n.title}
+                              </p>
+                              <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 pt-1" title={absoluteTime(n.createdAt)}>
+                                {relativeTime(n.createdAt)}
+                              </span>
+                            </div>
+                            {n.message && (
+                              <p className="mt-1 text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                                {n.message}
+                              </p>
+                            )}
+                            <span
+                              className="mt-3 inline-flex items-center px-2 py-0.5 rounded-none border text-[10px] font-bold uppercase tracking-wider"
+                              style={{ background: '#fff', borderColor: `${meta.color}40`, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Right: unread dot + delete */}
+                        <div className="flex shrink-0 flex-col items-center gap-3 pt-2">
+                          {!n.isRead && (
+                            <div className="size-2 rounded-full bg-slate-900" />
+                          )}
+                          <button
+                            onClick={(e) => handleDelete(e, n)}
+                            className="rounded-none p-1.5 transition-colors hover:bg-red-50 text-slate-400 hover:text-red-500 cursor-pointer"
+                            title="Delete notification"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 mt-auto bg-gray-50 border-t border-[#ECECE6]">
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  Showing{' '}
+                  <span className="text-slate-900">{(page - 1) * limit + 1}–{Math.min(page * limit, total)}</span>
+                  {' '}of <span className="text-slate-900">{total}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="size-8 bg-white border border-[#ECECE6] rounded-none flex items-center justify-center transition-colors hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <span className="px-3 text-sm font-bold text-slate-900">{page} / {totalPages}</span>
+                  <button
+                    className="size-8 bg-white border border-[#ECECE6] rounded-none flex items-center justify-center transition-colors hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }

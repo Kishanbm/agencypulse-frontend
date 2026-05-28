@@ -54,10 +54,10 @@ function MetricSelect({ value, onChange }: { value: string; onChange: (v: string
       <button
         onClick={() => setOpen((o) => !o)}
         className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-medium"
-        style={{ border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.08)', color: '#fff' }}
+        style={{ border: '1px solid #E5E7EB', background: '#fff', color: 'var(--foreground)' }}
       >
         {label}
-        <ChevronDown className="size-3 opacity-60" />
+        <ChevronDown className="size-3 text-muted-foreground" />
       </button>
       <AnimatePresence>
         {open && (
@@ -107,21 +107,21 @@ export function OverviewRanking({ from, to, metric, onMetricChange }: Props) {
   }));
 
   return (
-    <div className="rounded-2xl overflow-hidden flex flex-col" style={{ border: '1px solid #ECECE6' }}>
-      {/* Dark header */}
+    <div className="rounded-sm overflow-hidden flex flex-col bg-white" style={{ border: '1px solid #E5E7EB' }}>
+      {/* Header */}
       <div
         className="px-5 pt-5 pb-4"
-        style={{ background: '#0F0D1F', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid #E5E7EB' }}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Trophy className="size-4" style={{ color: isBottom ? '#f43f5e' : '#F5A524' }} />
-            <h3 className="font-heading font-semibold text-sm text-white">Campaign Ranking</h3>
+            <h3 className="font-heading font-semibold text-sm text-foreground">Campaign Ranking</h3>
           </div>
           <div className="flex items-center gap-2">
             <div
               className="flex rounded-xl p-0.5"
-              style={{ border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.05)' }}
+              style={{ border: '1px solid #E5E7EB', background: '#FAFAF7' }}
             >
               {(['desc', 'asc'] as Order[]).map((o) => (
                 <button
@@ -129,8 +129,8 @@ export function OverviewRanking({ from, to, metric, onMetricChange }: Props) {
                   onClick={() => setOrder(o)}
                   className="rounded-lg px-3 py-1 text-xs font-medium transition-colors"
                   style={order === o
-                    ? { background: 'rgba(255,255,255,0.12)', color: '#fff' }
-                    : { color: 'rgba(255,255,255,0.45)' }
+                    ? { background: 'white', color: '#5B47E0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }
+                    : { color: 'var(--muted-foreground)' }
                   }
                 >
                   {o === 'desc' ? 'Top' : 'Bottom'}
@@ -140,34 +140,12 @@ export function OverviewRanking({ from, to, metric, onMetricChange }: Props) {
             <MetricSelect value={metric} onChange={onMetricChange} />
           </div>
         </div>
-        <p className="mt-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {isBottom ? `Lowest ${metricLabel} — identify underperformers` : `Top ${metricLabel} — your best performers`}
         </p>
       </div>
 
-      {/* Chart area — white bg */}
-      <div className="bg-white">
-        {chartData.length > 0 && (
-          <div className="px-4 pt-3 pb-1">
-            <ResponsiveContainer width="100%" height={100}>
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -32, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 6" vertical={false} stroke="#E5E5E0" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9C9C96' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#9C9C96' }} axisLine={false} tickLine={false}
-                  tickFormatter={(v: number) => isCurrency
-                    ? (v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`)
-                    : (v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v))}
-                />
-                <RechartsTip
-                  contentStyle={{ fontSize: 12, borderRadius: 10, border: '1px solid #E5E5E0', background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}
-                  formatter={(v: number) => [isCurrency ? formatCurrency(v) : formatNumber(v), metricLabel]}
-                />
-                <Bar dataKey="value" fill={isBottom ? '#FF7A59' : '#5B47E0'} radius={[5, 5, 0, 0]} opacity={0.85} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
+      <div className="bg-white flex-1 flex flex-col">
         {/* List */}
         <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
           {isLoading ? (

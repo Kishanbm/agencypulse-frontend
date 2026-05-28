@@ -1,12 +1,12 @@
-﻿import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Calculator, Plus, Trash2, Play, ChevronDown, X, AlertCircle, Info, Loader2,
+  Calculator, Plus, Trash2, Play, ChevronDown, AlertCircle, Loader2, ArrowRight, Settings2, BarChart3, LineChart
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiClient } from "@/lib/api";
-import { useMetricDefinitions } from "@/hooks/useMetricDefinitions";
+import { CreateKpiWizard } from "./components/CreateKpiWizard";
 import type { IntegrationPlatform } from "@/types/dashboard";
 import type { KpiDefinition, KpiEvaluationResponse, CreateKpiDefinitionDto } from "@/types/kpi";
 import type { ClientsListResponse, CampaignsListResponse } from "@/types/clients";
@@ -63,45 +63,15 @@ function humanizeError(e: any): string {
 
 // ─── Input style helpers ──────────────────────────────────────────────────────
 
-const inputStyle = { border: '1px solid #ECECE6' };
-const onFocusViolet = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.12)';
-  e.currentTarget.style.borderColor = '#5B47E0';
+const inputStyle = { border: '1px solid #ECECE6', borderRadius: 0 };
+const onFocusSlate = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(15,23,42,0.08)';
+  e.currentTarget.style.borderColor = '#0f172a';
 };
 const onBlurReset = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
   e.currentTarget.style.boxShadow = 'none';
   e.currentTarget.style.borderColor = '#ECECE6';
 };
-
-// ─── Built-in KPI card ────────────────────────────────────────────────────────
-
-function BuiltInKpiCard({ kpi }: { kpi: typeof BUILT_IN_KPIS[0] }) {
-  return (
-    <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
-      <div className="h-0.5 w-full" style={{ background: kpi.color }} />
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-lg flex items-center justify-center" style={{ background: kpi.bg }}>
-              <Calculator className="size-3.5" style={{ color: kpi.color }} />
-            </div>
-            <span className="text-sm font-bold text-foreground" style={{ color: kpi.color }}>{kpi.label}</span>
-          </div>
-          <span
-            className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-            style={{ background: kpi.bg, color: kpi.color }}
-          >
-            Built-in
-          </span>
-        </div>
-        <code className="text-xs font-mono text-muted-foreground block rounded-xl px-2.5 py-2" style={{ background: 'rgba(0,0,0,0.03)' }}>
-          {kpi.formula}
-        </code>
-        <p className="text-xs text-muted-foreground">{kpi.description}</p>
-      </div>
-    </div>
-  );
-}
 
 // ─── Campaign Selector ────────────────────────────────────────────────────────
 
@@ -139,18 +109,17 @@ function CampaignSelector({ selectedClientId, selectedCampaignId, onSelect, sele
     return (
       <div className="flex items-center gap-3 flex-wrap">
         <div
-          className="flex items-center gap-2 text-sm px-3 py-2 rounded-xl"
-          style={{ background: 'rgba(91,71,224,0.06)', border: '1px solid rgba(91,71,224,0.12)' }}
+          className="flex items-center gap-2 text-sm px-3 py-2"
+          style={{ background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.08)' }}
         >
           <span className="text-muted-foreground text-xs">Campaign:</span>
-          <span className="font-semibold text-xs" style={{ color: '#5B47E0' }}>{selectedClientName}</span>
+          <span className="font-semibold text-xs text-slate-900">{selectedClientName}</span>
           <span className="text-muted-foreground text-xs">/</span>
-          <span className="font-semibold text-xs" style={{ color: '#5B47E0' }}>{selectedCampaignName}</span>
+          <span className="font-semibold text-xs text-slate-900">{selectedCampaignName}</span>
         </div>
         <button
           onClick={() => setPicking(true)}
-          className="text-xs font-semibold flex items-center gap-1 transition-colors hover:opacity-70"
-          style={{ color: '#5B47E0' }}
+          className="text-xs font-semibold flex items-center gap-1 transition-colors hover:opacity-70 text-slate-900 rounded-none"
         >
           <ChevronDown className="size-3" />
           Switch
@@ -166,9 +135,9 @@ function CampaignSelector({ selectedClientId, selectedCampaignId, onSelect, sele
         <select
           value={localClientId}
           onChange={(e) => setLocalClientId(e.target.value)}
-          className="h-9 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none min-w-[180px]"
+          className="h-9 px-3 text-sm bg-background text-foreground focus:outline-none appearance-none min-w-[180px] rounded-none"
           style={inputStyle}
-          onFocus={onFocusViolet}
+          onFocus={onFocusSlate}
           onBlur={onBlurReset}
         >
           <option value="">Select client…</option>
@@ -185,9 +154,9 @@ function CampaignSelector({ selectedClientId, selectedCampaignId, onSelect, sele
             if (cam && cli) { onSelect(cli.id, cam.id, cli.name, cam.name); setPicking(false); }
           }}
           disabled={!localClientId || campaigns.length === 0}
-          className="h-9 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none min-w-[200px] disabled:opacity-50"
+          className="h-9 px-3 text-sm bg-background text-foreground focus:outline-none appearance-none min-w-[200px] disabled:opacity-50 rounded-none"
           style={inputStyle}
-          onFocus={onFocusViolet}
+          onFocus={onFocusSlate}
           onBlur={onBlurReset}
         >
           <option value="">{localClientId ? (campaigns.length === 0 ? "No campaigns" : "Select campaign…") : "Select client first…"}</option>
@@ -197,203 +166,12 @@ function CampaignSelector({ selectedClientId, selectedCampaignId, onSelect, sele
       {selectedClientId && selectedCampaignId && (
         <button
           onClick={() => setPicking(false)}
-          className="h-9 px-3 rounded-xl text-xs font-medium hover:bg-muted transition-colors text-muted-foreground"
+          className="h-9 px-3 text-xs font-medium hover:bg-muted transition-colors text-muted-foreground rounded-none"
           style={{ border: '1px solid #ECECE6' }}
         >
           Cancel
         </button>
       )}
-    </div>
-  );
-}
-
-// ─── Create KPI Modal ─────────────────────────────────────────────────────────
-
-function CreateKpiModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const api = getApiClient();
-  const [name, setName] = useState("");
-  const [formula, setFormula] = useState("");
-  const [platform, setPlatform] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const formulaRef = useRef<HTMLTextAreaElement>(null);
-
-  const { metrics, isLoading: loadingMetrics } = useMetricDefinitions(
-    platform ? (platform as IntegrationPlatform) : undefined
-  );
-
-  const insertToken = useCallback((token: string) => {
-    const el = formulaRef.current;
-    if (!el) { setFormula((f) => f + token); return; }
-    const start = el.selectionStart ?? formula.length;
-    const end = el.selectionEnd ?? formula.length;
-    const newVal = formula.slice(0, start) + token + formula.slice(end);
-    setFormula(newVal);
-    setTimeout(() => {
-      el.setSelectionRange(start + token.length, start + token.length);
-      el.focus();
-    }, 0);
-  }, [formula]);
-
-  const handleSave = async () => {
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!platform) { setError("Please select a platform"); return; }
-    if (!formula.trim()) { setError("Formula is required"); return; }
-    setError(null);
-    setSaving(true);
-    try {
-      const dto: CreateKpiDefinitionDto = { name: name.trim(), formula: formula.trim(), platform };
-      await api.post("/agencies/me/kpi-definitions", dto);
-      toast.success("KPI created");
-      onCreated();
-    } catch (e: any) {
-      setError(humanizeError(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.97 }}
-        transition={{ duration: 0.25, ease: "easeOut" as const }}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto"
-        style={{ border: '1px solid #ECECE6' }}
-      >
-        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #5B47E0, #7C3AED)' }} />
-        <div className="p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.10)' }}>
-                <Calculator className="size-4" style={{ color: '#5B47E0' }} />
-              </div>
-              <h2 className="font-heading font-semibold text-base">New Custom KPI</h2>
-            </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-              <X className="size-4" />
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Engagement Rate"
-              className="w-full h-10 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none"
-              style={inputStyle}
-              onFocus={onFocusViolet}
-              onBlur={onBlurReset}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Platform</label>
-            <select
-              value={platform}
-              onChange={(e) => { setPlatform(e.target.value); setFormula(""); }}
-              className="w-full h-10 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none"
-              style={inputStyle}
-              onFocus={onFocusViolet}
-              onBlur={onBlurReset}
-            >
-              <option value="">Select platform…</option>
-              {PLATFORM_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Formula</label>
-            {platform && (
-              <div className="space-y-1.5">
-                {loadingMetrics ? (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Loader2 className="size-3 animate-spin" />Loading metric keys…
-                  </div>
-                ) : metrics.length > 0 ? (
-                  <>
-                    <p className="text-xs text-muted-foreground">Click a metric key to insert it:</p>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                      {metrics.map((m) => (
-                        <button
-                          key={m.metricKey}
-                          type="button"
-                          onClick={() => insertToken(m.metricKey)}
-                          title={m.label}
-                          className="text-xs font-mono px-2 py-1 rounded-lg transition-colors hover:opacity-80"
-                          style={{ border: '1px solid rgba(91,71,224,0.30)', background: 'rgba(91,71,224,0.06)', color: '#5B47E0' }}
-                        >
-                          {m.metricKey}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No metric keys found for this platform.</p>
-                )}
-              </div>
-            )}
-            <textarea
-              ref={formulaRef}
-              value={formula}
-              onChange={(e) => setFormula(e.target.value)}
-              placeholder={platform ? "Click a metric above or type a formula…" : "Select a platform first…"}
-              disabled={!platform}
-              rows={2}
-              className="w-full px-3 py-2 text-sm font-mono rounded-xl bg-background text-foreground focus:outline-none resize-none disabled:opacity-50"
-              style={inputStyle}
-              onFocus={onFocusViolet}
-              onBlur={onBlurReset}
-            />
-            <div
-              className="flex items-start gap-2 text-xs text-muted-foreground rounded-xl px-3 py-2"
-              style={{ background: 'rgba(91,71,224,0.04)', border: '1px solid rgba(91,71,224,0.10)' }}
-            >
-              <Info className="size-3.5 shrink-0 mt-0.5" style={{ color: '#5B47E0' }} />
-              <div>
-                Use metric keys as variables. Supports: <code className="font-mono">+ − * / ( )</code>
-                <br />
-                Example: <code className="font-mono">conversions / clicks * 100</code>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <p className="text-xs flex items-center gap-1.5" style={{ color: '#f43f5e' }}>
-              <AlertCircle className="size-3.5 shrink-0" /> {error}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              onClick={onClose}
-              className="h-9 px-4 rounded-xl text-sm font-medium hover:bg-muted transition-colors text-muted-foreground"
-              style={{ border: '1px solid #ECECE6' }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
-            >
-              {saving && <Loader2 className="size-3.5 animate-spin" />}
-              {saving ? "Creating…" : "Create KPI"}
-            </button>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 }
@@ -404,11 +182,16 @@ export default function KpiDefinitionsPage() {
   const api = getApiClient();
   const qc = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState<'kpis' | 'eval'>('kpis');
+
   const [selectedClientId, setSelectedClientId] = useState(() => sessionStorage.getItem(SS_CLIENT) ?? "");
   const [selectedCampaignId, setSelectedCampaignId] = useState(() => sessionStorage.getItem(SS_CAMPAIGN) ?? "");
   const [selectedClientName, setSelectedClientName] = useState(() => sessionStorage.getItem(`${SS_CLIENT}_name`) ?? "");
   const [selectedCampaignName, setSelectedCampaignName] = useState(() => sessionStorage.getItem(`${SS_CAMPAIGN}_name`) ?? "");
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitialData, setWizardInitialData] = useState<Partial<CreateKpiDefinitionDto> | undefined>(undefined);
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [evaluating, setEvaluating] = useState(false);
@@ -468,303 +251,393 @@ export default function KpiDefinitionsPage() {
     }
   };
 
+  const openWizard = (initialData?: Partial<CreateKpiDefinitionDto>) => {
+    setWizardInitialData(initialData);
+    setWizardOpen(true);
+  };
+
   return (
-    <div className="p-4 sm:p-5 lg:p-7 space-y-6 pb-12 max-w-[1000px] mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" as const }}
-        className="flex items-start justify-between gap-4 flex-wrap"
-      >
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(91,71,224,0.10)' }}>
-            <Calculator className="size-5" style={{ color: '#5B47E0' }} />
-          </div>
-          <div>
-            <h1 className="font-heading font-bold text-xl sm:text-2xl tracking-tight text-foreground">KPI Definitions</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Formula-based KPIs for your agency</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
-        >
-          <Plus className="size-4" />
-          New KPI
-        </button>
-      </motion.div>
-
-      {/* Built-in KPIs */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.05, ease: "easeOut" as const }}
-        className="space-y-3"
-      >
-        <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Built-in KPIs</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {BUILT_IN_KPIS.map((k) => <BuiltInKpiCard key={k.label} kpi={k} />)}
-        </div>
-      </motion.div>
-
-      {/* Custom KPIs */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" as const }}
-        className="bg-white rounded-2xl overflow-hidden"
-        style={{ border: '1px solid #ECECE6' }}
-      >
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #ECECE6' }}>
-          <h2 className="font-heading font-semibold text-sm text-foreground">
-            Custom KPIs
-            {definitions.length > 0 && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">({definitions.length})</span>
-            )}
-          </h2>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-0 divide-y" style={{ borderColor: '#F5F5F0' }}>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-16 px-5 flex items-center gap-3">
-                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-              </div>
-            ))}
-          </div>
-        ) : definitions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-            <div className="size-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'rgba(91,71,224,0.06)' }}>
-              <Calculator className="size-6 text-muted-foreground/30" />
+    <div className="min-h-screen bg-slate-50 pb-16 w-full flex flex-col">
+      
+      {/* Top Banner / Hero */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 py-10">
+            <div>
+              <h1 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight flex items-center gap-3">
+                <Calculator className="size-8 text-slate-800" />
+                KPI Definitions
+              </h1>
+              <p className="text-slate-500 mt-2 text-lg max-w-2xl">
+                Create and manage standard or custom formula-based KPIs for your agency. Set goals and thresholds to track campaign performance effortlessly.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">No custom KPIs yet</p>
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-3 text-xs font-semibold transition-colors hover:opacity-70"
-              style={{ color: '#5B47E0' }}
+              onClick={() => openWizard()}
+              className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm shrink-0 border border-slate-900 rounded-none"
             >
-              Create your first KPI
+              <Plus className="size-4" />
+              Create Custom KPI
             </button>
           </div>
-        ) : (
-          <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
-            {definitions.map((def, i) => (
-              <motion.div
-                key={def.id}
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.2, delay: i * 0.04, ease: "easeOut" as const }}
-                className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-muted/20 transition-colors"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-foreground">{def.name}</span>
-                    {def.platform && (
-                      <span
-                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: 'rgba(91,71,224,0.08)', color: '#5B47E0' }}
-                      >
-                        {PLATFORM_DISPLAY[def.platform] ?? def.platform}
-                      </span>
-                    )}
-                  </div>
-                  <code className="text-xs font-mono text-muted-foreground">{def.formula}</code>
-                </div>
 
-                {confirmDeleteId === def.id ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-semibold" style={{ color: '#f43f5e' }}>Delete?</span>
-                    <button
-                      onClick={() => handleDelete(def.id)}
-                      disabled={deletingId === def.id}
-                      className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                      style={{ background: '#f43f5e' }}
-                    >
-                      {deletingId === def.id ? "…" : "Yes"}
-                    </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium hover:bg-muted transition-colors text-muted-foreground"
-                      style={{ border: '1px solid #ECECE6' }}
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(def.id)}
-                    className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                )}
-              </motion.div>
+          {/* Source Tabs */}
+          <div className="flex gap-6 -mb-px">
+            {([
+              { id: "kpis" as const, label: "Definitions" },
+              { id: "eval" as const, label: "Evaluate Campaign" },
+            ] as const).map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${
+                  activeTab === id
+                    ? "border-slate-900 text-slate-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                {label}
+              </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ─── Main Content ─── */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
+
+        {activeTab === 'kpis' && (
+          <div className="space-y-6">
+            {/* Built-in KPIs */}
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.05, ease: "easeOut" }}
+              className="space-y-3"
+            >
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <BarChart3 className="size-4" />
+                Built-in KPIs
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {BUILT_IN_KPIS.map((kpi) => (
+                  <div key={kpi.label} className="bg-white overflow-hidden transition-shadow relative group hover:-translate-y-0.5 duration-200" style={{ border: '1px solid #ECECE6', borderRadius: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1)' }}>
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="size-8 flex items-center justify-center rounded-none bg-slate-100">
+                            <Calculator className="size-4 text-slate-700" />
+                          </div>
+                          <span className="text-sm font-bold text-slate-900">{kpi.label}</span>
+                        </div>
+                      </div>
+                      <code className="text-xs font-mono text-muted-foreground block px-3 py-2 border border-gray-100 bg-gray-50 rounded-none">
+                        {kpi.formula}
+                      </code>
+                      <p className="text-xs text-muted-foreground leading-relaxed h-8">{kpi.description}</p>
+                      
+                      <button
+                        onClick={() => openWizard({ name: `${kpi.label} (Custom)`, formula: kpi.formula })}
+                        className="w-full mt-2 py-2 text-xs font-semibold flex items-center justify-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-[#ECECE6] rounded-none"
+                      >
+                        Customize <ArrowRight className="size-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Custom KPIs */}
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
+              className="bg-white overflow-hidden"
+              style={{ border: '1px solid #ECECE6', borderRadius: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1)' }}
+            >
+              <div className="flex items-center justify-between px-6 py-5 bg-gray-50 border-b border-[#ECECE6]">
+                <h2 className="font-heading font-semibold text-sm text-foreground flex items-center gap-2">
+                  <Settings2 className="size-4 text-slate-800" />
+                  Custom KPIs
+                  {definitions.length > 0 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground px-2 py-0.5 bg-gray-200 text-gray-700">
+                      {definitions.length}
+                    </span>
+                  )}
+                </h2>
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-0 divide-y" style={{ borderColor: '#F5F5F0' }}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-20 px-6 flex items-center gap-3">
+                      <div className="h-4 w-32 animate-pulse bg-muted" />
+                      <div className="h-4 w-48 animate-pulse bg-muted" />
+                    </div>
+                  ))}
+                </div>
+              ) : definitions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+                  <div className="size-16 flex items-center justify-center mb-4 bg-slate-50 text-slate-400 rounded-none border border-slate-200">
+                    <Calculator className="size-8" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">No custom KPIs yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">Create your own formulas tailored to your specific reporting needs.</p>
+                  <button
+                    onClick={() => openWizard()}
+                    className="mt-6 text-sm font-semibold px-5 py-2.5 transition-colors bg-slate-900 hover:bg-slate-800 text-white border border-slate-900 rounded-none"
+                  >
+                    Create your first KPI
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: '#F5F5F0' }}>
+                  {definitions.map((def, i) => (
+                    <motion.div
+                      key={def.id}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: i * 0.04, ease: "easeOut" }}
+                      className="flex items-start justify-between gap-4 px-6 py-5 hover:bg-muted/10 transition-colors"
+                    >
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-sm font-bold text-foreground">{def.name}</span>
+                          {def.platform && (
+                            <span
+                              className="text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200"
+                            >
+                              {PLATFORM_DISPLAY[def.platform] ?? def.platform}
+                            </span>
+                          )}
+                          <span className="text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200">
+                            {def.formatType || 'NUMBER'}
+                          </span>
+                        </div>
+                        <code className="text-xs font-mono font-semibold text-gray-600 block bg-gray-50 border border-gray-100 px-3 py-1.5 w-max rounded-none">
+                          {def.formula}
+                        </code>
+                        {def.goalTarget && def.goalCondition && (
+                          <p className="text-[11px] font-medium text-emerald-600">
+                            Goal: {def.goalCondition} {def.goalTarget}
+                          </p>
+                        )}
+                      </div>
+
+                      {confirmDeleteId === def.id ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-semibold" style={{ color: '#f43f5e' }}>Delete?</span>
+                          <button
+                            onClick={() => handleDelete(def.id)}
+                            disabled={deletingId === def.id}
+                            className="text-xs px-3 py-1.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                            style={{ background: '#f43f5e', border: '1px solid #be123c', borderRadius: 0 }}
+                          >
+                            {deletingId === def.id ? "…" : "Yes"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-xs px-3 py-1.5 font-semibold hover:bg-muted transition-colors text-muted-foreground"
+                            style={{ border: '1px solid #ECECE6', background: 'white', borderRadius: 0 }}
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(def.id)}
+                          className="shrink-0 p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100 rounded-none"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
-      </motion.div>
 
-      {/* Evaluate section */}
-      {definitions.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" as const }}
-          className="bg-white rounded-2xl overflow-hidden"
-          style={{ border: '1px solid #ECECE6' }}
-        >
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid #ECECE6' }}>
-            <h2 className="font-heading font-semibold text-sm text-foreground">Evaluate Against a Campaign</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Calculate current KPI values using live metric data.
-            </p>
-          </div>
-          <div className="p-5 space-y-5">
-            <CampaignSelector
-              selectedClientId={selectedClientId}
-              selectedCampaignId={selectedCampaignId}
-              selectedClientName={selectedClientName}
-              selectedCampaignName={selectedCampaignName}
-              onSelect={handleCampaignSelect}
-            />
-
-            {selectedCampaignId && (
-              <div className="flex items-end gap-3 flex-wrap">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Platform</label>
-                  <select
-                    value={evalPlatform}
-                    onChange={(e) => { setEvalPlatform(e.target.value); setEvalResults(null); }}
-                    className="h-9 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none min-w-[180px]"
-                    style={inputStyle}
-                    onFocus={onFocusViolet}
-                    onBlur={onBlurReset}
-                  >
-                    <option value="">Select platform…</option>
-                    {PLATFORM_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date range</label>
-                  <select
-                    value={evalRange}
-                    onChange={(e) => setEvalRange(e.target.value)}
-                    className="h-9 px-3 text-sm rounded-xl bg-background text-foreground focus:outline-none appearance-none"
-                    style={inputStyle}
-                    onFocus={onFocusViolet}
-                    onBlur={onBlurReset}
-                  >
-                    <option value="7">Last 7 days</option>
-                    <option value="30">Last 30 days</option>
-                    <option value="90">Last 90 days</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleEvaluate}
-                  disabled={evaluating || !evalPlatform}
-                  className="h-9 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
-                >
-                  {evaluating ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                  {evaluating ? "Evaluating…" : "Evaluate"}
-                </button>
-              </div>
-            )}
-
-            {/* Evaluation results */}
-            {evalResults && (
-              <div className="space-y-4">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Results — {selectedClientName} / {selectedCampaignName} · {PLATFORM_DISPLAY[evalPlatform] ?? evalPlatform}
-                </p>
-
-                {Object.keys(evalResults.custom).length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-foreground">Custom KPIs</p>
-                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
-                      <table className="w-full text-sm">
-                        <thead style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid #ECECE6' }}>
-                          <tr>
-                            <th className="text-left px-4 py-2.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                            <th className="text-right px-4 py-2.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Value</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y" style={{ borderColor: '#F5F5F0' }}>
-                          {Object.entries(evalResults.custom).map(([name, val]) => (
-                            <tr key={name} className="hover:bg-muted/20 transition-colors">
-                              <td className="px-4 py-2.5 font-medium text-foreground text-sm">{name}</td>
-                              <td className="px-4 py-2.5 text-right font-mono tabular-nums text-sm font-semibold" style={{ color: '#5B47E0' }}>
-                                {val === null ? <span className="text-muted-foreground font-normal">No data</span> : formatEvalValue(val)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+        {/* Evaluate section */}
+        {activeTab === 'eval' && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="bg-white overflow-hidden flex flex-col min-h-[400px]"
+            style={{ border: '1px solid #ECECE6', borderRadius: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1)' }}
+          >
+            <div className="px-6 py-5 bg-gray-50 border-b border-[#ECECE6]">
+              <h2 className="font-heading font-semibold text-sm text-foreground flex items-center gap-2">
+                <LineChart className="size-4 text-emerald-600" />
+                Live Evaluation Sandbox
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Calculate current KPI values using live metric data from your active campaigns.
+              </p>
+            </div>
+            <div className="p-6 space-y-6 flex-1">
+              <div className="p-5 bg-gray-50 border border-[#ECECE6] rounded-none">
+                <CampaignSelector
+                  selectedClientId={selectedClientId}
+                  selectedCampaignId={selectedCampaignId}
+                  selectedClientName={selectedClientName}
+                  selectedCampaignName={selectedCampaignName}
+                  onSelect={handleCampaignSelect}
+                />
+                
+                {selectedCampaignId && (
+                  <div className="mt-4 pt-4 border-t border-[#ECECE6] flex items-end gap-3 flex-wrap">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Platform</label>
+                      <select
+                        value={evalPlatform}
+                        onChange={(e) => { setEvalPlatform(e.target.value); setEvalResults(null); }}
+                        className="h-9 px-3 text-sm bg-white border-[#ECECE6] text-foreground focus:outline-none appearance-none min-w-[180px] rounded-none"
+                        style={inputStyle}
+                        onFocus={onFocusSlate}
+                        onBlur={onBlurReset}
+                      >
+                        <option value="">Select platform…</option>
+                        {PLATFORM_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                      </select>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date range</label>
+                      <select
+                        value={evalRange}
+                        onChange={(e) => setEvalRange(e.target.value)}
+                        className="h-9 px-3 text-sm bg-white border-[#ECECE6] text-foreground focus:outline-none appearance-none rounded-none"
+                        style={inputStyle}
+                        onFocus={onFocusSlate}
+                        onBlur={onBlurReset}
+                      >
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleEvaluate}
+                      disabled={evaluating || !evalPlatform}
+                      className="h-9 px-5 rounded-none text-sm font-semibold text-white inline-flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50 ml-auto"
+                      style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                    >
+                      {evaluating ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                      {evaluating ? "Evaluating…" : "Run Evaluation"}
+                    </button>
                   </div>
                 )}
-
-                {Object.keys(evalResults.derived).length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-foreground">Built-in Derived KPIs</p>
-                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
-                      <table className="w-full text-sm">
-                        <thead style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid #ECECE6' }}>
-                          <tr>
-                            <th className="text-left px-4 py-2.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                            <th className="text-right px-4 py-2.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Value</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y" style={{ borderColor: '#F5F5F0' }}>
-                          {Object.entries(evalResults.derived).map(([name, val]) => (
-                            <tr key={name} className="hover:bg-muted/20 transition-colors">
-                              <td className="px-4 py-2.5 font-medium text-foreground text-sm">{name}</td>
-                              <td className="px-4 py-2.5 text-right font-mono tabular-nums text-sm font-semibold" style={{ color: '#FF7A59' }}>
-                                {val === null ? <span className="text-muted-foreground font-normal">No data</span> : formatEvalValue(val)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {Object.keys(evalResults.base).length > 0 && (
-                  <details className="group">
-                    <summary className="text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground select-none">
-                      Raw base metrics ({Object.keys(evalResults.base).length})
-                    </summary>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.entries(evalResults.base).map(([key, val]) => (
-                        <span key={key} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid #ECECE6' }}>
-                          <span className="font-mono text-muted-foreground">{key}</span>
-                          <span className="font-semibold text-foreground">{formatEvalValue(val)}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </details>
-                )}
-
-                {Object.keys(evalResults.custom).length === 0 && Object.keys(evalResults.derived).length === 0 && (
-                  <p className="text-sm text-muted-foreground">No KPI results for this platform. Make sure your custom KPIs are set up for {PLATFORM_DISPLAY[evalPlatform] ?? evalPlatform}.</p>
-                )}
               </div>
-            )}
-          </div>
-        </motion.div>
-      )}
+
+              {/* Evaluation results */}
+              {evalResults && (
+                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between border-b border-[#ECECE6] pb-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Evaluation Results
+                    </p>
+                    <p className="text-xs font-medium text-gray-500">
+                      {selectedClientName} / {selectedCampaignName} · {PLATFORM_DISPLAY[evalPlatform] ?? evalPlatform}
+                    </p>
+                  </div>
+
+                  {Object.keys(evalResults.custom).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Settings2 className="size-4 text-slate-800" /> Custom KPIs
+                      </p>
+                      <div className="overflow-hidden border border-[#ECECE6] rounded-none">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-[#ECECE6]">
+                            <tr>
+                              <th className="text-left px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Name</th>
+                              <th className="text-right px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#F5F5F0]">
+                            {Object.entries(evalResults.custom).map(([name, val]) => (
+                              <tr key={name} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-foreground text-sm">{name}</td>
+                                <td className="px-4 py-3 text-right font-mono tabular-nums text-sm font-bold text-slate-900">
+                                  {val === null ? <span className="text-muted-foreground font-normal">No data</span> : formatEvalValue(val)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {Object.keys(evalResults.derived).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <BarChart3 className="size-4 text-orange-500" /> Built-in Derived KPIs
+                      </p>
+                      <div className="overflow-hidden border border-[#ECECE6] rounded-none">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-[#ECECE6]">
+                            <tr>
+                              <th className="text-left px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Name</th>
+                              <th className="text-right px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#F5F5F0]">
+                            {Object.entries(evalResults.derived).map(([name, val]) => (
+                              <tr key={name} className="hover:bg-orange-50/50 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-foreground text-sm">{name}</td>
+                                <td className="px-4 py-3 text-right font-mono tabular-nums text-sm font-bold text-orange-600">
+                                  {val === null ? <span className="text-muted-foreground font-normal">No data</span> : formatEvalValue(val)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {Object.keys(evalResults.base).length > 0 && (
+                    <details className="group border border-[#ECECE6] rounded-none p-3 bg-gray-50">
+                      <summary className="text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground select-none flex items-center justify-between">
+                        <span>Raw Base Metrics ({Object.keys(evalResults.base).length})</span>
+                      </summary>
+                      <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-[#ECECE6]">
+                        {Object.entries(evalResults.base).map(([key, val]) => (
+                          <div key={key} className="flex flex-col bg-white px-3 py-2 border border-[#ECECE6] rounded-none min-w-[120px]">
+                            <span className="font-mono text-[10px] text-muted-foreground mb-1 break-all uppercase">{key}</span>
+                            <span className="font-semibold text-foreground text-sm">{formatEvalValue(val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {Object.keys(evalResults.custom).length === 0 && Object.keys(evalResults.derived).length === 0 && (
+                    <div className="p-6 bg-orange-50 border border-orange-100 text-center rounded-none">
+                      <AlertCircle className="size-6 text-orange-400 mx-auto mb-2" />
+                      <p className="text-sm text-orange-800 font-semibold">No KPI results available</p>
+                      <p className="text-xs text-orange-600 mt-1">Make sure you have KPI formulas defined for {PLATFORM_DISPLAY[evalPlatform] ?? evalPlatform} and that the campaign has active data in the selected date range.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       {/* Create modal */}
       <AnimatePresence>
-        {showCreateModal && (
-          <CreateKpiModal
-            onClose={() => setShowCreateModal(false)}
+        {wizardOpen && (
+          <CreateKpiWizard
+            initialData={wizardInitialData}
+            onClose={() => setWizardOpen(false)}
             onCreated={() => {
-              setShowCreateModal(false);
+              setWizardOpen(false);
               qc.invalidateQueries({ queryKey: ["kpiDefinitions"] });
             }}
           />

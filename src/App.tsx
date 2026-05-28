@@ -18,6 +18,9 @@ import ClientDetailPage from "@/pages/clients/ClientDetailPage";
 import CampaignHomePage from "@/pages/clients/CampaignHomePage";
 import ClientTeamPage from "@/pages/clients/ClientTeamPage";
 import TeamPage from "@/pages/team/TeamPage";
+import InviteStaffPage from "@/pages/team/InviteStaffPage";
+import StaffProfilePage from "@/pages/team/StaffProfilePage";
+import StaffAuditPage from "@/pages/team/StaffAuditPage";
 import AgencyProfilePage from "@/pages/settings/AgencyProfilePage";
 import BrandingPage from "@/pages/settings/BrandingPage";
 import IntegrationsPage from "@/pages/clients/IntegrationsPage";
@@ -163,7 +166,19 @@ export default function App() {
               {/* Team — slice B2 (ADMIN+) */}
               <Route element={<RoleRoute min="AGENCY_ADMIN" />}>
                 <Route
-                  path="/team"
+                  path="team/invite"
+                  element={<InviteStaffPage />}
+                />
+                <Route
+                  path="team/:id"
+                  element={<StaffProfilePage />}
+                />
+                <Route
+                  path="team/:id/activity"
+                  element={<StaffAuditPage />}
+                />
+                <Route
+                  path="team"
                   element={<TeamPage />}
                 />
                 <Route path="/kpi-definitions" element={<KpiDefinitionsPage />} />

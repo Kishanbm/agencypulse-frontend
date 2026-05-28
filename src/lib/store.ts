@@ -2,6 +2,25 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AuthUser } from "@/types/auth";
 
+// ─── Sidebar collapse state ───────────────────────────────────────────────────
+// Shared between AgencyAppLayout (reads/writes via collapse button) and
+// DashboardViewer (auto-collapses on edit mode entry).
+
+interface SidebarState {
+  isCollapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+}
+
+export const useSidebarStore = create<SidebarState>()(
+  persist(
+    (set) => ({
+      isCollapsed: false,
+      setCollapsed: (v) => set({ isCollapsed: v }),
+    }),
+    { name: "agencypulse-sidebar" },
+  ),
+);
+
 interface AuthState {
   user: AuthUser | null;
   token: string | null;

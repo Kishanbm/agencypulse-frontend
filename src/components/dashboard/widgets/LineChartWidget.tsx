@@ -66,7 +66,7 @@ export function LineChartWidget({
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={safeData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+      <AreaChart data={safeData} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
         <defs>
           {lines.map((line) => (
             <linearGradient key={`color-${line.dataKey}`} id={`color-${line.dataKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -79,17 +79,27 @@ export function LineChartWidget({
         <XAxis
           dataKey="date"
           className="text-[10px] font-medium"
-          tick={{ fill: "var(--muted-foreground)" }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
           axisLine={false}
           tickLine={false}
           dy={10}
+          tickFormatter={(v: string) => {
+            // Shorten ISO dates to MM-DD for space
+            if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(5);
+            return v.length > 10 ? v.slice(0, 10) : v;
+          }}
         />
         <YAxis
           className="text-[10px] font-medium"
-          tick={{ fill: "var(--muted-foreground)" }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
           axisLine={false}
           tickLine={false}
-          dx={-10}
+          width={45}
+          tickFormatter={(v: number) =>
+            v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+            : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
+            : String(v)
+          }
         />
         <Tooltip
           contentStyle={{

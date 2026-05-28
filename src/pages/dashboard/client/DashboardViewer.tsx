@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -17,7 +17,20 @@ import { useDashboardEdit } from "@/hooks/useDashboardEdit";
 import { useConnectedPlatforms } from "@/hooks/useConnectedPlatforms";
 import { useHasRole } from "@/hooks/useRole";
 import { getApiClient } from "@/lib/api";
+import { useSidebarStore } from "@/lib/store";
 import type { Dashboard, DashboardWidget } from "@/types/dashboard";
+
+function ConfigPanelWrapper({ children }: { children: React.ReactNode }) {
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
+  return (
+    <div
+      className="shrink-0 transition-all duration-200 ease-in-out"
+      style={{ width: isCollapsed ? "24rem" : "18rem" }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function DashboardViewer() {
   const { clientId, campaignId, dashboardId } = useParams<{
@@ -40,6 +53,10 @@ export function DashboardViewer() {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateNamePrompt, setTemplateNamePrompt] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [previewDataMap, setPreviewDataMap] = useState<Record<string, { widgetId: string; widgetType: string; data: unknown }>>({});
+
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const preEditCollapseRef = useRef(false);
 
   const {
     data: dashboard,
@@ -67,6 +84,18 @@ export function DashboardViewer() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [edit.isDirty]);
 
+  // Auto-collapse sidebar when entering edit mode; restore on exit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (edit.editMode) {
+      preEditCollapseRef.current = useSidebarStore.getState().isCollapsed;
+      setCollapsed(true);
+    } else {
+      setCollapsed(preEditCollapseRef.current);
+      setPreviewDataMap({});
+    }
+  }, [edit.editMode]);
+
   const { connectedPlatforms } = useConnectedPlatforms(clientId, campaignId);
 
   const displayWidgets: DashboardWidget[] = edit.editMode
@@ -88,6 +117,26 @@ export function DashboardViewer() {
 
   const handleEnterEdit = () => {
     if (dashboard) edit.enterEdit(dashboard.widgets);
+  };
+
+  const handleRunQuery = async (widgetId: string, sql: string) => {
+    const widget = edit.editedWidgets.find((w) => w.id === widgetId);
+    if (!widget || !campaignId) return;
+    try {
+      const result = await api.post("/integrations/google-bigquery/preview", {
+        campaignId,
+        sql,
+        widgetType: widget.widgetType,
+        from: dateRange.from,
+        to: dateRange.to,
+      });
+      setPreviewDataMap((prev) => ({
+        ...prev,
+        [widgetId]: { widgetId, widgetType: widget.widgetType, data: result.data },
+      }));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "BigQuery preview failed");
+    }
   };
 
   const handleDeleteWidget = async (widgetId: string) => {
@@ -298,7 +347,11 @@ export function DashboardViewer() {
           renderWidget={(widget) => (
             <WidgetRenderer
               widget={widget}
-              widgetData={widgetDataMap[widget.id]}
+              widgetData={
+                edit.editMode && previewDataMap[widget.id] !== undefined
+                  ? previewDataMap[widget.id]
+                  : widgetDataMap[widget.id]
+              }
               isLoading={widgetsLoading}
               error={!has403(widgetsError) && widgetsError ? String(widgetsError) : undefined}
               onRetry={refetch}
@@ -308,11 +361,12 @@ export function DashboardViewer() {
         </div>{/* end main content area */}
       </div>
 
-      {/* Config panel — only renders when a widget is selected; smooth transition prevents hard jiggle */}
+      {/* Config panel — width expands when sidebar is collapsed to use reclaimed space */}
       {edit.editMode && edit.selectedWidget && (
-        <div className="w-72 shrink-0 transition-all duration-200 ease-in-out">
+        <ConfigPanelWrapper>
           <WidgetConfigPanel
             widget={edit.selectedWidget}
+            campaignId={campaignId}
             onClose={() => edit.setSelectedWidgetId(null)}
             onUpdate={(changes) => edit.updateWidget(edit.selectedWidgetId!, changes)}
             onResize={(w, h) => {
@@ -321,8 +375,9 @@ export function DashboardViewer() {
             }}
             onDelete={() => handleDeleteWidget(edit.selectedWidgetId!)}
             isDeleting={deletingWidgetId === edit.selectedWidgetId}
+            onRunQuery={handleRunQuery}
           />
-        </div>
+        </ConfigPanelWrapper>
       )}
 
       {/* Add widget modal */}
