@@ -8,7 +8,6 @@ import { OverviewKpis }     from './components/OverviewKpis';
 import { OverviewRanking }  from './components/OverviewRanking';
 import { OverviewHealth }   from './components/OverviewHealth';
 import { OverviewClients }  from './components/OverviewClients';
-import { OnboardingChecklist } from './components/OnboardingChecklist';
 import type { AgencyHealthResponse, CampaignRankingItem } from './overview.types';
 import { getDateRange, DATE_PRESETS } from './overview.utils';
 
@@ -198,8 +197,6 @@ export default function OverviewPage() {
           ))}
         </div>
       </motion.div>
-
-      <OnboardingChecklist agencyInterests={agency?.interests} />
 
       <ScorecardStrip />
 

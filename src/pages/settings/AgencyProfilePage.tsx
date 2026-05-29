@@ -33,7 +33,15 @@ const profileSchema = z.object({
       "Lowercase letters, numbers, hyphens only. Cannot start or end with a hyphen.",
     )
     .refine((v) => !v.includes("--"), "Consecutive hyphens are not allowed"),
-  website: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional(),
+  website: z.string()
+    .transform((val) => {
+      const trimmed = val.trim();
+      if (!trimmed) return trimmed;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      return `https://${trimmed}`;
+    })
+    .pipe(z.union([z.string().url("Must be a valid URL (e.g., https://example.com)"), z.literal("")]))
+    .optional(),
   timezone: z.string().optional(),
   country: z.string().optional(),
   size: z.string().optional(),
@@ -65,10 +73,23 @@ const TIMEZONES = [
 ];
 
 const COUNTRIES = [
-  { code: "US", name: "United States" }, { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" }, { code: "AU", name: "Australia" },
-  { code: "IN", name: "India" }, { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" }, { code: "JP", name: "Japan" }
+  { code: "US", name: "United States" },
+  { code: "CA", name: "Canada" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" },
+  { code: "NL", name: "Netherlands" },
+  { code: "IN", name: "India" },
+  { code: "SG", name: "Singapore" },
+  { code: "JP", name: "Japan" },
+  { code: "BR", name: "Brazil" },
+  { code: "MX", name: "Mexico" },
+  { code: "ZA", name: "South Africa" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "OT", name: "Other" }
 ];
 
 const SIZES = ["1", "2-10", "11-50", "51-200", "201-500", "501+"];
@@ -86,6 +107,7 @@ export default function AgencyProfilePage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty, isValid },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -282,7 +304,14 @@ export default function AgencyProfilePage() {
                       className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
                       style={inputStyle}
                       onFocus={onFocusSlate}
-                      onBlur={onBlurReset}
+                      onBlur={(e) => {
+                        onBlurReset(e);
+                        let value = e.target.value.trim();
+                        if (value && !/^https?:\/\//i.test(value)) {
+                          value = `https://${value}`;
+                          setValue("website", value, { shouldValidate: true, shouldDirty: true });
+                        }
+                      }}
                     />
                     {errors.website && <p className="text-xs text-red-500">{errors.website.message}</p>}
                   </div>

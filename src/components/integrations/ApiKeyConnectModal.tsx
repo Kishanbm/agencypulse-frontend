@@ -82,7 +82,7 @@ export default function ApiKeyConnectModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!connectMutation.isPending) onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="sm:max-w-lg bg-card border-border rounded-none">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-foreground">
             Connect {platform.name}
@@ -106,7 +106,7 @@ export default function ApiKeyConnectModal({
                   {...register(field.id)}
                   placeholder={field.placeholder}
                   rows={3}
-                  className="font-mono text-xs resize-none bg-muted/30 border-border"
+                  className="font-mono text-xs resize-none bg-muted/30 border-border rounded-none"
                 />
               ) : (
                 <Input
@@ -114,7 +114,7 @@ export default function ApiKeyConnectModal({
                   type={field.type === 'password' ? 'password' : field.type === 'number' ? 'text' : 'text'}
                   {...register(field.id)}
                   placeholder={field.placeholder}
-                  className="bg-muted/30 border-border"
+                  className="bg-muted/30 border-border rounded-none"
                   autoComplete={field.type === 'password' ? 'new-password' : undefined}
                 />
               )}
@@ -129,18 +129,18 @@ export default function ApiKeyConnectModal({
           ))}
 
           {/* Security notice */}
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border mt-2">
+          <div className="flex items-center gap-2 p-3 rounded-none bg-muted/40 border border-border mt-2">
             <Shield className="w-4 h-4 text-primary shrink-0" />
             <p className="text-xs text-muted-foreground">
               Credentials are encrypted at rest using AES-256-GCM and never exposed in API responses.
             </p>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 rounded-b-none">
             <Button
               type="button"
               variant="outline"
-              className="border-border"
+              className="border-border rounded-none"
               onClick={() => onOpenChange(false)}
               disabled={connectMutation.isPending}
             >
@@ -149,7 +149,7 @@ export default function ApiKeyConnectModal({
             <Button
               type="submit"
               disabled={connectMutation.isPending}
-              className="bg-primary text-primary-foreground gap-2"
+              className="bg-primary text-primary-foreground gap-2 rounded-none"
             >
               {connectMutation.isPending ? (
                 <>

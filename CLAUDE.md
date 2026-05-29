@@ -1,5 +1,20 @@
 # AgencyPulse — Claude Instructions
 
+## ⚡ CONTEXT RESTORE (use this prompt when starting a new session or after context loss)
+
+Paste this exactly:
+
+```
+Restore context for AgencyPulse. Read these files in order:
+1. C:\Users\Kishan B M\.claude\projects\d--projects-agencypulse\memory\session_context_may28_2026.md
+2. C:\Users\Kishan B M\.claude\projects\d--projects-agencypulse\memory\full_session_context.md
+3. D:\projects\agency-backend\docs\PROGRESS.md
+4. D:\projects\agency-backend\docs\PLATFORM_CREDENTIALS_STATUS.md
+Once read, give me a 3-sentence summary of current state and confirm ready to continue.
+```
+
+**What this covers:** Complete project history (April 16 – May 28, 2026), all 47 backend features built, 23 platforms tested, current task (local E2E testing), pending items (LinkedIn Ads credentials, lead setting up production infra), all bugs fixed, deployment strategy, and what's next.
+
 ## Project Overview
 Multi-tenant SaaS analytics platform for marketing agencies — exact feature clone of AgencyAnalytics.com.
 Agencies connect marketing platforms, fetch data via APIs, store as time-series, display in dashboards, generate automated reports.

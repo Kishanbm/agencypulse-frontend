@@ -343,6 +343,17 @@ export function WidgetConfigPanel({
     setCustomH(String(widget.position.h));
   }, [widget.position.w, widget.position.h]);
 
+  // When the valid metrics list loads, strip any stored metricKeys that are no longer valid
+  // (e.g. from old templates that used metric keys that no longer exist in metric_definitions)
+  useEffect(() => {
+    if (!metrics.length || !widget.metricKeys?.length) return;
+    const validKeys = new Set(metrics.map((m) => m.metricKey));
+    const cleaned = widget.metricKeys.filter((k) => validKeys.has(k));
+    if (cleaned.length !== widget.metricKeys.length) {
+      onUpdate({ metricKeys: cleaned });
+    }
+  }, [metrics]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTitleChange = (title: string) => onUpdate({ config: { ...widget.config, title } });
   const handleTypeChange = (widgetType: WidgetType) => onUpdate({ widgetType });
   const handlePlatformChange = (platform: IntegrationPlatform) => onUpdate({ platform, metricKeys: [] });

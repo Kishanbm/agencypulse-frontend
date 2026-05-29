@@ -238,6 +238,8 @@ function ClientFormModal({
   });
 
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
   const onSubmit = async (values: ClientFormValues) => {
     if (isEdit && client) {
       await update.mutateAsync({ id: client.id, dto: values });
@@ -247,16 +249,14 @@ function ClientFormModal({
       const newClient = await create.mutateAsync(values);
       onClose();
       form.reset();
-      
-      if (newClient.campaigns && newClient.campaigns.length > 0) {
-        const campaignId = newClient.campaigns[0].id;
-        const queryParams = values.services?.length 
-          ? `?services=${encodeURIComponent(values.services.join(','))}` 
-          : '';
-        navigate(`/clients/${newClient.id}/campaigns/${campaignId}/integrations${queryParams}`);
-      } else {
-        navigate(`/clients/${newClient.id}`);
-      }
+      // Prefetch campaigns before navigating so the detail page renders
+      // the auto-created campaign immediately without a staleTime delay.
+      await qc.prefetchQuery({
+        queryKey: ["campaigns", newClient.id],
+        queryFn: () =>
+          api.get(`/clients/${newClient.id}/campaigns`, { params: { limit: 100 } }).then((r: any) => r.data),
+      });
+      navigate(`/clients/${newClient.id}`);
     }
   };
 
@@ -333,7 +333,7 @@ function ClientFormModal({
                           form.setValue("services", [...currentServices, service]);
                         }
                       }}
-                      className="px-3 py-1.5 text-[13px] font-medium rounded-none transition-colors border"
+                      className="px-3 py-1.5 text-[13px] font-medium rounded-none transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 hover:shadow-sm"
                       style={{
                         backgroundColor: isSelected ? 'rgba(91,71,224,0.1)' : '#fff',
                         borderColor: isSelected ? '#5B47E0' : '#ECECE6',

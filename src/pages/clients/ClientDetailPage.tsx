@@ -493,13 +493,13 @@ export default function ClientDetailPage() {
               </div>
 
               {/* Pulse Score Gauge */}
-              <div className="flex items-center gap-5 shrink-0 bg-white/90 backdrop-blur-sm rounded-xl p-5 border border-gray-200 shadow-sm relative z-10">
+              <div className="flex items-center gap-5 shrink-0 bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-lg relative z-10">
                 <div className="relative size-20 flex items-center justify-center">
                   <svg className="size-full -rotate-90" viewBox="0 0 100 100">
                     <circle
                       cx="50" cy="50" r="38"
                       fill="transparent"
-                      stroke="rgba(0,0,0,0.06)"
+                      stroke="rgba(255,255,255,0.08)"
                       strokeWidth="8"
                     />
                     <circle
@@ -514,12 +514,12 @@ export default function ClientDetailPage() {
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-xl font-bold text-gray-900 tracking-tight">{pulseScore}</span>
+                    <span className="text-xl font-bold text-white tracking-tight">{pulseScore}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-0.5 max-w-[100px]">
-                  <span className="text-sm font-bold text-gray-900">Client Pulse</span>
-                  <span className="text-xs leading-tight text-gray-500">
+                  <span className="text-sm font-bold text-white">Client Pulse</span>
+                  <span className="text-xs leading-tight text-slate-400">
                     Based on active campaigns & integrations
                   </span>
                 </div>

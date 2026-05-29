@@ -15,6 +15,7 @@ import { useBranding } from "@/contexts/BrandingContext";
 import { logout as doLogout } from "@/lib/auth-service";
 import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
 import { GlobalAiWidget } from "@/components/ai/GlobalAiWidget";
+import { OnboardingBar } from "@/components/onboarding/OnboardingBar";
 import type { Role } from "@/types/auth";
 
 type NavItem = {
@@ -412,6 +413,9 @@ export function AgencyAppLayout() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
+
+        {/* Onboarding checklist — sticky bottom bar, visible on all pages until complete or dismissed */}
+        <OnboardingBar />
       </div>
 
       {/* Global AI assistant — floating bubble bottom-right */}

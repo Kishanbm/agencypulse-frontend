@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2, AlertCircle, Unplug, RefreshCw, Search,
   ChevronRight, Loader2, AlertTriangle, X, Zap,
+  BarChart3, Lock, LayoutDashboard,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
@@ -21,6 +22,7 @@ import {
   type PlatformEntry,
 } from "@/lib/platform-catalog";
 import ApiKeyConnectModal from "@/components/integrations/ApiKeyConnectModal";
+import { CreateDashboardModal } from "@/components/dashboard/CreateDashboardModal";
 
 // ─── Logo sources ─────────────────────────────────────────────────────────────
 // ICONIFY_MAP  → @iconify/logos collection (colored SVGs, verified available)
@@ -465,6 +467,7 @@ export default function IntegrationsPage() {
   const [gbpLocationPicker, setGbpLocationPicker] = useState(false);
   const [bigQueryProjectPicker, setBigQueryProjectPicker] = useState(false);
   const [linkedInAdsAccountPicker, setLinkedInAdsAccountPicker] = useState(false);
+  const [connectionSuccess, setConnectionSuccess] = useState<{ platformKey: string; platformName: string } | null>(null);
   const [shopDomainInput, setShopDomainInput] = useState("");
   const [flippedCardKey, setFlippedCardKey] = useState<string | null>(null);
 
@@ -494,7 +497,7 @@ export default function IntegrationsPage() {
     } else if (connected.toLowerCase() === "google-business-profile") {
       setGbpLocationPicker(true);
     } else if (connected.toLowerCase() === "google-sheets") {
-      toast.success("Google Sheets connected — add a Google Sheets widget to your dashboard to configure a spreadsheet.");
+      setConnectionSuccess({ platformKey: "GOOGLE_SHEETS", platformName: "Google Sheets" });
     } else if (connected.toLowerCase() === "google-bigquery") {
       setBigQueryProjectPicker(true);
     } else if (connected.toLowerCase() === "linkedin-ads") {
@@ -503,7 +506,7 @@ export default function IntegrationsPage() {
       const entry = PLATFORM_CATALOG.find(
         (p) => p.slug === connected || p.key.toLowerCase() === connected.toLowerCase(),
       );
-      toast.success(`${entry?.name ?? connected} connected successfully`);
+      setConnectionSuccess({ platformKey: entry?.key ?? connected.toUpperCase(), platformName: entry?.name ?? connected });
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -821,7 +824,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setGa4PropertyPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("Google Analytics 4 connected successfully");
+            setConnectionSuccess({ platformKey: "GA4", platformName: "Google Analytics 4" });
           }}
         />
       )}
@@ -834,7 +837,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setGscSitePicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("Google Search Console connected successfully");
+            setConnectionSuccess({ platformKey: "GOOGLE_SEARCH_CONSOLE", platformName: "Google Search Console" });
           }}
         />
       )}
@@ -847,7 +850,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setYoutubeChannelPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("YouTube Analytics connected successfully");
+            setConnectionSuccess({ platformKey: "YOUTUBE_ANALYTICS", platformName: "YouTube Analytics" });
           }}
         />
       )}
@@ -860,7 +863,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setGoogleAdsCustomerPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("Google Ads connected successfully");
+            setConnectionSuccess({ platformKey: "GOOGLE_ADS", platformName: "Google Ads" });
           }}
         />
       )}
@@ -873,7 +876,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setGbpLocationPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("Google Business Profile connected successfully");
+            setConnectionSuccess({ platformKey: "GOOGLE_BUSINESS_PROFILE", platformName: "Google Business Profile" });
           }}
         />
       )}
@@ -886,7 +889,7 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setBigQueryProjectPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("Google BigQuery connected — add a BigQuery widget to your dashboard and write your SQL query.");
+            setConnectionSuccess({ platformKey: "GOOGLE_BIGQUERY", platformName: "Google BigQuery" });
           }}
         />
       )}
@@ -899,8 +902,19 @@ export default function IntegrationsPage() {
           onSaved={() => {
             setLinkedInAdsAccountPicker(false);
             void queryClient.invalidateQueries({ queryKey });
-            toast.success("LinkedIn Ads connected successfully");
+            setConnectionSuccess({ platformKey: "LINKEDIN_ADS", platformName: "LinkedIn Ads" });
           }}
+        />
+      )}
+
+      {/* Connection success modal */}
+      {connectionSuccess && (
+        <ConnectionSuccessModal
+          platformKey={connectionSuccess.platformKey}
+          platformName={connectionSuccess.platformName}
+          clientId={clientId ?? ""}
+          campaignId={campaignId ?? ""}
+          onClose={() => setConnectionSuccess(null)}
         />
       )}
 
@@ -931,7 +945,7 @@ export default function IntegrationsPage() {
               onClick={() => setShopDomainTarget(null)}
             />
             <motion.div
-              className="relative w-full max-w-md rounded-2xl overflow-hidden bg-white z-10"
+              className="relative w-full max-w-md rounded-none overflow-hidden bg-white z-10"
               style={{ border: '1px solid #ECECE6', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -940,7 +954,7 @@ export default function IntegrationsPage() {
             >
               <div className="h-1 w-full" style={{ background: 'linear-gradient(135deg,#5B47E0,#7C6FF7)' }} />
               <div className="px-5 pt-5 pb-4 flex items-start gap-3" style={{ borderBottom: '1px solid #ECECE6' }}>
-                <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
+                <div className="size-9 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.10)' }}>
                   <Zap className="size-4" style={{ color: '#5B47E0' }} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -949,7 +963,7 @@ export default function IntegrationsPage() {
                 </div>
                 <button
                   onClick={() => setShopDomainTarget(null)}
-                  className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  className="size-7 rounded-none flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
                   style={{ border: '1px solid #ECECE6' }}
                 >
                   <X className="size-3.5" />
@@ -959,7 +973,7 @@ export default function IntegrationsPage() {
                 <label className="block text-xs font-semibold text-foreground">
                   Store domain
                 </label>
-                <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
+                <div className="flex items-center rounded-none overflow-hidden" style={{ border: '1px solid #ECECE6' }}>
                   <span className="px-3 text-xs text-muted-foreground bg-muted/30 h-10 flex items-center border-r" style={{ borderColor: '#ECECE6' }}>
                     https://
                   </span>
@@ -987,7 +1001,7 @@ export default function IntegrationsPage() {
               <div className="px-5 pb-5 flex items-center justify-end gap-2">
                 <button
                   onClick={() => setShopDomainTarget(null)}
-                  className="px-4 h-9 rounded-xl text-sm font-semibold transition-colors hover:bg-muted/40"
+                  className="px-4 h-9 rounded-none text-sm font-semibold transition-colors hover:bg-muted/40"
                   style={{ border: '1px solid #ECECE6', color: 'var(--muted-foreground)' }}
                 >
                   Cancel
@@ -999,7 +1013,7 @@ export default function IntegrationsPage() {
                     setShopDomainTarget(null);
                   }}
                   disabled={!shopDomainInput || connectOAuthMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-bold text-white disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg,#5B47E0,#7C6FF7)' }}
                 >
                   <Zap className="size-3.5" />
@@ -1027,7 +1041,7 @@ export default function IntegrationsPage() {
               onClick={() => setDisconnectTarget(null)}
             />
             <motion.div
-              className="relative w-full max-w-md rounded-2xl overflow-hidden bg-white z-10"
+              className="relative w-full max-w-md rounded-none overflow-hidden bg-white z-10"
               style={{ border: '1px solid #ECECE6', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1036,7 +1050,7 @@ export default function IntegrationsPage() {
             >
               <div className="h-1 w-full" style={{ background: 'linear-gradient(135deg,#f43f5e,#fb7185)' }} />
               <div className="px-5 pt-5 pb-4 flex items-start gap-3" style={{ borderBottom: '1px solid #ECECE6' }}>
-                <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.10)' }}>
+                <div className="size-9 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.10)' }}>
                   <AlertTriangle className="size-4" style={{ color: '#f43f5e' }} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1045,7 +1059,7 @@ export default function IntegrationsPage() {
                 </div>
                 <button
                   onClick={() => setDisconnectTarget(null)}
-                  className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  className="size-7 rounded-none flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
                   style={{ border: '1px solid #ECECE6' }}
                 >
                   <X className="size-3.5" />
@@ -1059,7 +1073,7 @@ export default function IntegrationsPage() {
               <div className="px-5 pb-5 flex items-center justify-end gap-2">
                 <button
                   onClick={() => setDisconnectTarget(null)}
-                  className="px-4 h-9 rounded-xl text-sm font-semibold transition-colors hover:bg-muted/40"
+                  className="px-4 h-9 rounded-none text-sm font-semibold transition-colors hover:bg-muted/40"
                   style={{ border: '1px solid #ECECE6', color: 'var(--muted-foreground)' }}
                 >
                   Cancel
@@ -1070,7 +1084,7 @@ export default function IntegrationsPage() {
                     setDisconnectTarget(null);
                   }}
                   disabled={disconnectMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-none text-sm font-bold text-white disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg,#f43f5e,#fb7185)' }}
                 >
                   <Unplug className="size-3.5" />
@@ -1134,7 +1148,7 @@ function YoutubeChannelPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1154,7 +1168,7 @@ function YoutubeChannelPickerModal({
           {isLoading && (
             <div className="space-y-2">
               {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-muted rounded-none animate-pulse" />
               ))}
             </div>
           )}
@@ -1179,7 +1193,7 @@ function YoutubeChannelPickerModal({
               <button
                 key={ch.id}
                 onClick={() => setSelected(ch.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                   selected === ch.id
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
@@ -1197,14 +1211,14 @@ function YoutubeChannelPickerModal({
         <div className="px-5 pb-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+            className="px-4 py-2 text-sm rounded-none border border-border hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-4 py-2 text-sm rounded-none bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Channel
@@ -1296,7 +1310,7 @@ function GbpLocationPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1319,7 +1333,7 @@ function GbpLocationPickerModal({
               {isLoading && (
                 <div className="space-y-2">
                   {[...Array(2)].map((_, i) => (
-                    <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
+                    <div key={i} className="h-16 bg-muted rounded-none animate-pulse" />
                   ))}
                 </div>
               )}
@@ -1335,7 +1349,7 @@ function GbpLocationPickerModal({
                   <button
                     key={loc.locationId}
                     onClick={() => setSelected(loc)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                    className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                       selected?.locationId === loc.locationId
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
@@ -1362,7 +1376,7 @@ function GbpLocationPickerModal({
           {(manualMode || isQuotaError) && (
             <>
               {isQuotaError && (
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-3 text-xs text-amber-800 dark:text-amber-300">
+                <div className="rounded-none bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-3 text-xs text-amber-800 dark:text-amber-300">
                   The Google Business Profile Accounts API has a quota limit on this project. Enter your Account ID and Location ID manually — find them in your GBP dashboard URL at{" "}
                   <span className="font-mono">business.google.com</span>.
                 </div>
@@ -1378,7 +1392,7 @@ function GbpLocationPickerModal({
                     value={manualAccountId}
                     onChange={(e) => setManualAccountId(e.target.value)}
                     placeholder="e.g. 123456789  or  accounts/123456789"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 text-sm rounded-none border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Found in the URL when managing your business on business.google.com
@@ -1394,7 +1408,7 @@ function GbpLocationPickerModal({
                     value={manualLocationId}
                     onChange={(e) => setManualLocationId(e.target.value)}
                     placeholder="e.g. 987654321  or  locations/987654321"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 text-sm rounded-none border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Found in the URL when viewing a specific location on business.google.com
@@ -1417,14 +1431,14 @@ function GbpLocationPickerModal({
         <div className="px-5 pb-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+            className="px-4 py-2 text-sm rounded-none border border-border hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-4 py-2 text-sm rounded-none bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Location
@@ -1483,7 +1497,7 @@ function GoogleAdsCustomerPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1503,7 +1517,7 @@ function GoogleAdsCustomerPickerModal({
           {isLoading && (
             <div className="space-y-2">
               {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-muted rounded-none animate-pulse" />
               ))}
             </div>
           )}
@@ -1528,7 +1542,7 @@ function GoogleAdsCustomerPickerModal({
               <button
                 key={c.customerId}
                 onClick={() => setSelected(c.customerId)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                   selected === c.customerId
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
@@ -1544,14 +1558,14 @@ function GoogleAdsCustomerPickerModal({
         <div className="px-5 pb-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+            className="px-4 py-2 text-sm rounded-none border border-border hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-4 py-2 text-sm rounded-none bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Account
@@ -1612,7 +1626,7 @@ function GscSitePickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1632,7 +1646,7 @@ function GscSitePickerModal({
           {isLoading && (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="h-12 bg-muted rounded-none animate-pulse" />
               ))}
             </div>
           )}
@@ -1655,7 +1669,7 @@ function GscSitePickerModal({
               <button
                 key={s.siteUrl}
                 onClick={() => setSelected(s.siteUrl)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                   selected === s.siteUrl
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
@@ -1673,14 +1687,14 @@ function GscSitePickerModal({
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30">
           <button
             onClick={onClose}
-            className="px-4 h-9 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-muted"
+            className="px-4 h-9 rounded-none text-sm font-medium border border-border text-foreground hover:bg-muted"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            className="px-4 h-9 rounded-none text-sm font-bold text-white disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : "Connect Property"}
@@ -1744,7 +1758,7 @@ function Ga4PropertyPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1764,7 +1778,7 @@ function Ga4PropertyPickerModal({
           {isLoading && (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="h-12 bg-muted rounded-none animate-pulse" />
               ))}
             </div>
           )}
@@ -1787,7 +1801,7 @@ function Ga4PropertyPickerModal({
               <button
                 key={p.propertyId}
                 onClick={() => setSelected(p.propertyId)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                   selected === p.propertyId
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
@@ -1803,14 +1817,14 @@ function Ga4PropertyPickerModal({
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30">
           <button
             onClick={onClose}
-            className="px-4 h-9 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-muted"
+            className="px-4 h-9 rounded-none text-sm font-medium border border-border text-foreground hover:bg-muted"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            className="px-4 h-9 rounded-none text-sm font-bold text-white disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : "Connect Property"}
@@ -1870,7 +1884,7 @@ function LinkedInAdsAccountPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -1890,7 +1904,7 @@ function LinkedInAdsAccountPickerModal({
           {isLoading && (
             <div className="space-y-2">
               {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-muted rounded-none animate-pulse" />
               ))}
             </div>
           )}
@@ -1915,7 +1929,7 @@ function LinkedInAdsAccountPickerModal({
               <button
                 key={acc.id}
                 onClick={() => setSelected(acc.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-none border transition-colors ${
                   selected === acc.id
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
@@ -1933,14 +1947,14 @@ function LinkedInAdsAccountPickerModal({
         <div className="px-5 pb-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+            className="px-4 py-2 text-sm rounded-none border border-border hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-4 py-2 text-sm rounded-none bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
             Connect Account
@@ -2002,7 +2016,7 @@ function BigQueryProjectPickerModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card border border-border rounded-none shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -2027,7 +2041,7 @@ function BigQueryProjectPickerModal({
           )}
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <div className="flex items-start gap-2 p-3 rounded-none bg-destructive/10 text-destructive text-sm">
               <AlertCircle className="size-4 mt-0.5 shrink-0" />
               <span>
                 {(error as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -2048,7 +2062,7 @@ function BigQueryProjectPickerModal({
                 <button
                   key={proj.id}
                   onClick={() => setSelected(proj)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-none border text-left transition-colors ${
                     selected?.id === proj.id
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border hover:border-primary/40 hover:bg-muted/50"
@@ -2070,14 +2084,14 @@ function BigQueryProjectPickerModal({
         <div className="px-5 pb-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+            className="px-4 py-2 text-sm rounded-none border border-border hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="px-4 h-9 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            className="px-4 h-9 rounded-none text-sm font-bold text-white disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Connect Project"}
@@ -2085,5 +2099,321 @@ function BigQueryProjectPickerModal({
         </div>
       </motion.div>
     </div>
+  );
+}
+
+// ─── Connection Success Modal ─────────────────────────────────────────────────
+
+// Platforms that have PLATFORM_DEFAULT_WIDGETS defined — "Explore" card shown only for these
+const PLATFORMS_WITH_DEFAULT_WIDGETS = new Set([
+  'GA4', 'GOOGLE_ADS', 'META_ADS', 'GOOGLE_SEARCH_CONSOLE', 'SE_RANKING',
+  'MAILCHIMP', 'KLAVIYO', 'ACTIVECAMPAIGN', 'BREVO', 'CONSTANT_CONTACT',
+  'CONVERTKIT', 'CAMPAIGN_MONITOR', 'DRIP', 'SHOPIFY', 'YOUTUBE_ANALYTICS',
+  'VIMEO', 'BING_WEBMASTER_TOOLS', 'HUBSPOT', 'TWILIO', 'GATHERUP',
+  'STRIPE_ECOMMERCE', 'MATOMO', 'LINKEDIN_ADS',
+]);
+
+function ConnectionSuccessModal({
+  platformKey,
+  platformName,
+  clientId,
+  campaignId,
+  onClose,
+}: {
+  platformKey: string;
+  platformName: string;
+  clientId: string;
+  campaignId: string;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const api = getApiClient();
+  const platform = PLATFORM_CATALOG.find((p) => p.key === platformKey);
+  const hasDefaultWidgets = PLATFORMS_WITH_DEFAULT_WIDGETS.has(platformKey);
+
+  // 'cards' = action list, 'naming' = inline blank-dashboard name input
+  const [view, setView] = useState<'cards' | 'naming'>('cards');
+  const [dashName, setDashName] = useState('');
+
+  // Fetch this platform's template so "Explore" can clone it directly
+  const { data: templateData, isLoading: templateLoading } = useQuery<{ items: { id: string; name: string }[] }>({
+    queryKey: ['templates', 'dashboards', 'platform', platformKey],
+    queryFn: () =>
+      api
+        .get<{ items: { id: string; name: string }[] }>(`/templates/dashboards?platform=${platformKey}`)
+        .then((r) => r.data),
+    enabled: hasDefaultWidgets,
+    staleTime: 60_000,
+  });
+  const platformTemplate = templateData?.items?.[0] ?? null;
+
+  // Clone platform template → navigate to new dashboard
+  const cloneMutation = useMutation({
+    mutationFn: (args: { templateId: string; name: string }) =>
+      api
+        .post<{ id: string; name: string }>(`/templates/dashboards/${args.templateId}/clone`, {
+          campaignId,
+          name: args.name,
+        })
+        .then((r) => r.data),
+    onSuccess: (cloned) => {
+      onClose();
+      navigate(`/clients/${clientId}/campaigns/${campaignId}/dashboards/${cloned.id}`);
+    },
+    onError: () => toast.error('Failed to create dashboard — please try again'),
+  });
+
+  // Create blank dashboard → navigate to it
+  const createBlankMutation = useMutation({
+    mutationFn: (name: string) =>
+      api
+        .post<{ id: string; name: string }>(`/campaigns/${campaignId}/dashboards`, { name })
+        .then((r) => r.data),
+    onSuccess: (created) => {
+      onClose();
+      navigate(`/clients/${clientId}/campaigns/${campaignId}/dashboards/${created.id}`);
+    },
+    onError: () => toast.error('Failed to create dashboard — please try again'),
+  });
+
+  function handleExplore() {
+    if (!platformTemplate) return;
+    cloneMutation.mutate({ templateId: platformTemplate.id, name: platformTemplate.name });
+  }
+
+  function handleCreateBlank() {
+    const name = dashName.trim();
+    if (!name) return;
+    createBlankMutation.mutate(name);
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative bg-white rounded-none w-full max-w-3xl overflow-hidden grid grid-cols-1 md:grid-cols-5 min-h-[420px]"
+        style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.18)', border: '1px solid #ECECE6' }}
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.97 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Left Column - Success Splash Panel (Slate-900 background) */}
+        <div className="col-span-1 md:col-span-2 bg-slate-900 text-white p-6 sm:p-8 flex flex-col justify-between relative border-b md:border-b-0 md:border-r border-slate-800">
+          <div className="space-y-6">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-none text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              Active Connection
+            </span>
+            
+            <div className="flex flex-col items-start gap-4">
+              <div className="size-16 rounded-none bg-slate-800/80 border border-slate-700 flex items-center justify-center p-3 shadow-inner">
+                {platform && <PlatformLogo platform={platform} size={40} />}
+              </div>
+              <div>
+                <h4 className="font-heading font-bold text-lg leading-tight text-white">
+                  {platformName}
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  Integration added successfully
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="size-5 rounded-none bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <svg className="size-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4.5}>
+                  <motion.path
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <span className="text-xs font-semibold text-emerald-400 tracking-wide uppercase">Live Sync Online · Connected Successfully</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Live metrics are now configured and will feed directly into your dashboards and automated client reports.
+            </p>
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-slate-800 flex items-center gap-2 text-[10px] text-slate-500">
+            <Lock className="size-3 shrink-0" />
+            <span>Encrypted Credentials at Rest</span>
+          </div>
+        </div>
+
+        {/* Right Column - Navigation & Next Steps (Slate-50/70 background) */}
+        <div className="col-span-1 md:col-span-3 p-6 sm:p-8 flex flex-col justify-between relative bg-slate-55 bg-slate-50/70 border-l border-slate-100">
+          {/* Close button top right */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 size-7 rounded-none flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            style={{ border: '1px solid #ECECE6' }}
+          >
+            <X className="size-3.5" />
+          </button>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-heading font-bold text-lg text-foreground">What's Next?</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose how you want to build and structure your client's visual reporting.
+              </p>
+            </div>
+
+            {/* ── Card view ── */}
+            {view === 'cards' && (
+              <div className="space-y-4">
+                {hasDefaultWidgets && (
+                  <button
+                    onClick={handleExplore}
+                    disabled={templateLoading || cloneMutation.isPending || !platformTemplate}
+                    className="w-full group text-left p-5 rounded-none border transition-all duration-300 hover:-translate-y-1 relative flex items-start gap-4 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                    style={{ border: '1px solid #ECECE6', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', background: '#ffffff' }}
+                    onMouseEnter={(e) => {
+                      if (!cloneMutation.isPending && platformTemplate) {
+                        e.currentTarget.style.borderColor = '#5B47E0';
+                        e.currentTarget.style.boxShadow = '0 12px 28px rgba(91,71,224,0.14)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#ECECE6';
+                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+                    }}
+                  >
+                    <div className="size-8 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(234,88,12,0.08)' }}>
+                      {cloneMutation.isPending
+                        ? <Loader2 className="size-4 animate-spin" style={{ color: '#EA580C' }} />
+                        : <BarChart3 className="size-5" style={{ color: '#EA580C' }} />
+                      }
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                        {cloneMutation.isPending ? 'Creating dashboard…' : `Explore ${platformName} Template`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-normal">
+                        Create a pre-built dashboard loaded with standard {platformName} KPIs.
+                      </p>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => { setDashName(''); setView('naming'); }}
+                  className="w-full group text-left p-5 rounded-none border transition-all duration-300 hover:-translate-y-1 relative flex items-start gap-4"
+                  style={{ border: '1px solid #ECECE6', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', background: '#ffffff' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#5B47E0';
+                    e.currentTarget.style.boxShadow = '0 12px 28px rgba(91,71,224,0.14)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#ECECE6';
+                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+                  }}
+                >
+                  <div className="size-8 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.08)' }}>
+                    <LayoutDashboard className="size-5" style={{ color: '#5B47E0' }} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                      Create a Board
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-normal">
+                      Start with a blank dashboard and add widgets manually.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={onClose}
+                  className="w-full group text-left p-5 rounded-none border transition-all duration-300 hover:-translate-y-1 relative flex items-start gap-4"
+                  style={{ border: '1px solid #ECECE6', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', background: '#ffffff' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#5B47E0';
+                    e.currentTarget.style.boxShadow = '0 12px 28px rgba(91,71,224,0.14)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#ECECE6';
+                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+                  }}
+                >
+                  <div className="size-8 rounded-none flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.08)' }}>
+                    <Zap className="size-5" style={{ color: '#5B47E0' }} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                      Connect Another Source
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-normal">
+                      Keep adding more marketing integrations to build a multi-channel report.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* ── Naming view (Create a Board) ── */}
+            {view === 'naming' && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dashboard name</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={dashName}
+                    onChange={(e) => setDashName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateBlank()}
+                    placeholder="e.g. GA4 Overview"
+                    className="w-full h-10 px-3 text-sm rounded-none bg-background text-foreground focus:outline-none transition-shadow"
+                    style={{ border: '1px solid #ECECE6' }}
+                    onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,71,224,0.15)'; e.currentTarget.style.borderColor = '#5B47E0'; }}
+                    onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#ECECE6'; }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setView('cards')}
+                    className="h-9 px-4 rounded-none text-sm font-medium text-muted-foreground transition-colors hover:bg-muted flex-1"
+                    style={{ border: '1px solid #ECECE6' }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleCreateBlank}
+                    disabled={!dashName.trim() || createBlankMutation.isPending}
+                    className="h-9 px-4 rounded-none text-sm font-semibold text-white inline-flex items-center justify-center gap-1.5 flex-1 transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #111827, #1f2937)' }}
+                  >
+                    {createBlankMutation.isPending && <Loader2 className="size-3.5 animate-spin" />}
+                    {createBlankMutation.isPending ? 'Creating…' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-slate-100 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors rounded-none"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

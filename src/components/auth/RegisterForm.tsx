@@ -36,7 +36,15 @@ const step1Schema = z.object({
 
 const step2Schema = z.object({
   agencyName: z.string().min(2, "Agency name must be at least 2 characters"),
-  website: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
+  website: z.string()
+    .transform((val) => {
+      const trimmed = val.trim();
+      if (!trimmed) return trimmed;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      return `https://${trimmed}`;
+    })
+    .pipe(z.string().url("Must be a valid URL (e.g., https://example.com)").or(z.literal("")))
+    .optional(),
   size: z.string().min(1, "Please select an agency size"),
   country: z.string().min(2, "Please select a country").max(2),
   timezone: z.string().min(1, "Please select a timezone"),
@@ -80,7 +88,7 @@ const COUNTRIES = [
   { value: "MX", label: "Mexico" },
   { value: "ZA", label: "South Africa" },
   { value: "AE", label: "United Arab Emirates" },
-  { value: "OTHER", label: "Other" },
+  { value: "OT", label: "Other" },
 ];
 
 const TIMEZONES = [
@@ -201,9 +209,13 @@ export function RegisterForm() {
   async function onSubmit(values: FullValues) {
     setIsLoading(true);
     try {
+      let website = values.website?.trim();
+      if (website && !/^https?:\/\//i.test(website)) {
+        website = `https://${website}`;
+      }
       const payload = {
         ...values,
-        website: values.website?.trim() || undefined,
+        website: website || undefined,
         phone: values.phone?.trim() || undefined,
         country: values.country || undefined,
         interests: values.interests?.length ? values.interests : undefined,
@@ -426,7 +438,20 @@ export function RegisterForm() {
                       <FormControl>
                         <div className="relative">
                           <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60" />
-                          <Input type="url" placeholder="https://acmemarketing.com" className="h-11 pl-11 rounded-xl text-sm bg-white" {...field} />
+                          <Input
+                            type="url"
+                            placeholder="https://acmemarketing.com"
+                            className="h-11 pl-11 rounded-xl text-sm bg-white"
+                            {...field}
+                            onBlur={(e) => {
+                              field.onBlur();
+                              let value = e.target.value.trim();
+                              if (value && !/^https?:\/\//i.test(value)) {
+                                value = `https://${value}`;
+                                form.setValue("website", value, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />

@@ -6,7 +6,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Upload, Loader2, Palette, Globe, Mail,
-  Image as ImageIcon, Save, Sparkles, Paintbrush
+  Image as ImageIcon, Save, Sparkles, Paintbrush,
+  CheckCircle2, Clock, AlertCircle, Copy,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getApiClient } from "@/lib/api";
@@ -20,8 +21,15 @@ interface BrandingData {
   primaryColor: string;
   secondaryColor: string;
   customDomain: string | null;
+  customDomainStatus: "pending" | "active" | "failed" | null;
   emailFromName: string;
   emailFromAddress: string | null;
+}
+
+interface DomainStatusData {
+  customDomain: string | null;
+  status: "pending" | "active" | "failed" | null;
+  cnameTarget: string;
 }
 
 const brandingSchema = z.object({
@@ -61,6 +69,155 @@ const onBlurReset = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) 
   e.currentTarget.style.boxShadow = 'none';
   e.currentTarget.style.borderColor = '#ECECE6';
 };
+
+// ─── Custom Domain Section ────────────────────────────────────────────────────
+
+function CustomDomainSection({
+  register, errors, savedDomain, savedStatus,
+}: {
+  register: any;
+  errors: any;
+  savedDomain: string | null;
+  savedStatus: "pending" | "active" | "failed" | null;
+}) {
+  const api = getApiClient();
+
+  const { data: statusData, refetch: refetchStatus } = useQuery<DomainStatusData>({
+    queryKey: ["custom-domain-status"],
+    queryFn: () =>
+      api.get<DomainStatusData>("/agencies/me/branding/custom-domain/status").then((r) => r.data),
+    enabled: !!savedDomain,
+    // Poll every 10s while pending, stop once active or failed
+    refetchInterval: (query) => {
+      const s = query.state.data?.status;
+      return s === "pending" ? 10_000 : false;
+    },
+  });
+
+  const status = statusData?.status ?? savedStatus;
+  const cnameTarget = statusData?.cnameTarget ?? "custom.agencypulse.com";
+  const domainToShow = statusData?.customDomain ?? savedDomain;
+
+  function StatusBadge() {
+    if (!domainToShow) return null;
+    if (status === "active") return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+        style={{ background: "rgba(16,217,160,0.10)", color: "#059669", border: "1px solid rgba(16,217,160,0.25)" }}>
+        <CheckCircle2 className="size-3" /> Active
+      </span>
+    );
+    if (status === "failed") return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+        style={{ background: "rgba(244,63,94,0.08)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.20)" }}>
+        <AlertCircle className="size-3" /> Verification failed
+      </span>
+    );
+    if (status === "pending") return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+        style={{ background: "rgba(245,165,36,0.10)", color: "#d97706", border: "1px solid rgba(245,165,36,0.25)" }}>
+        <Clock className="size-3" /> Pending DNS
+      </span>
+    );
+    return null;
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => toast.success("Copied to clipboard"));
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <Globe className="size-4 text-slate-500" />
+          Custom Domain
+        </h3>
+        <p className="text-xs text-slate-500 mt-1">Serve your client portal from your own domain with full SSL.</p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label htmlFor="customDomain" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            Domain
+          </label>
+          <StatusBadge />
+        </div>
+        <input
+          id="customDomain"
+          {...register("customDomain")}
+          placeholder="reports.acme.com"
+          className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
+          style={inputStyle}
+          onFocus={onFocusSlate}
+          onBlur={onBlurReset}
+        />
+        {errors.customDomain && (
+          <p className="text-xs text-red-500">{errors.customDomain.message}</p>
+        )}
+      </div>
+
+      {/* CNAME instructions — shown once domain is saved */}
+      {domainToShow && status !== null && (
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+            <p className="text-xs font-semibold text-slate-700">
+              {status === "active"
+                ? "Your custom domain is live"
+                : "Add this DNS record at your domain registrar"}
+            </p>
+          </div>
+          <div className="p-4 space-y-3">
+            {status !== "active" && (
+              <>
+                <div className="grid grid-cols-[80px_1fr_1fr] gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Type</span><span>Name</span><span>Value</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr_1fr] gap-2 items-center">
+                  <span className="text-xs font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-1 rounded">CNAME</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <code className="text-xs font-mono text-slate-800 truncate">
+                      {domainToShow.split(".").slice(0, -2).join(".") || domainToShow}
+                    </code>
+                    <button type="button" onClick={() => copyToClipboard(domainToShow.split(".").slice(0, -2).join(".") || domainToShow)}
+                      className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors">
+                      <Copy className="size-3" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <code className="text-xs font-mono text-slate-800 truncate">{cnameTarget}</code>
+                    <button type="button" onClick={() => copyToClipboard(cnameTarget)}
+                      className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors">
+                      <Copy className="size-3" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {status === "pending"
+                    ? "DNS propagation usually takes 1–5 minutes. SSL is issued automatically once your CNAME is detected. This page will update automatically."
+                    : "Verification failed. Check that your CNAME record is correctly set, then save the domain again to retry."}
+                </p>
+              </>
+            )}
+            {status === "active" && (
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                <strong className="text-slate-800">{domainToShow}</strong> is verified and serving traffic with a valid SSL certificate.
+                Your clients can now access the portal at <strong>{domainToShow}</strong>.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hint when no domain is set yet */}
+      {!domainToShow && (
+        <p className="text-xs text-slate-500">
+          Enter a subdomain you control (e.g. <code className="px-1 py-0.5 text-[10px] font-mono bg-slate-100 text-slate-700 rounded">reports.acme.com</code>).
+          After saving, you'll be shown the exact DNS record to add. SSL is provisioned automatically.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function BrandingPage() {
   const api = getApiClient();
@@ -389,41 +546,12 @@ export default function BrandingPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                 
                 {/* Custom Domain Section */}
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <Globe className="size-4 text-slate-500" />
-                      Custom Domain
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">Serve your client portal from your own domain.</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="customDomain" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Domain
-                    </label>
-                    <input
-                      id="customDomain"
-                      {...register("customDomain")}
-                      placeholder="reports.acme.com"
-                      className="w-full h-10 px-3 text-sm outline-none bg-white transition-shadow placeholder:text-slate-400"
-                      style={inputStyle}
-                      onFocus={onFocusSlate}
-                      onBlur={onBlurReset}
-                    />
-                    {errors.customDomain ? (
-                      <p className="text-xs text-red-500">{errors.customDomain.message}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Add a CNAME record pointing to{" "}
-                        <code className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 text-slate-800 border border-slate-200">
-                          app.agencypulse.com
-                        </code>{" "}
-                        in your DNS settings.
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <CustomDomainSection
+                  register={register}
+                  errors={errors}
+                  savedDomain={branding?.customDomain ?? null}
+                  savedStatus={branding?.customDomainStatus ?? null}
+                />
 
                 {/* Email Section */}
                 <div className="space-y-6">
